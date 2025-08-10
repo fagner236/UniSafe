@@ -1,6 +1,6 @@
 {
   "name": "unisafe-app",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Sistema web moderno para entidades sindicais gerenciarem informações dos empregados filiados",
   "main": "index.js",
   "scripts": {

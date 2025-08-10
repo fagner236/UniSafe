@@ -4,7 +4,6 @@ import {
   Users, 
   FileText, 
   DollarSign,
-  User,
   Gift
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
@@ -403,8 +402,49 @@ const Dashboard = () => {
     };
   };
 
-  // Função para calcular estatísticas por faixa salarial
-
+  // Função para calcular estatísticas de contribuição mínima, máxima e média
+  const getContribuicaoMinMaxStats = () => {
+    if (!processedData) return { min: 0, max: 0, average: 0, count: 0 };
+    
+    // Procura pela coluna VALOR MENSALIDADE
+    const mensalidadeColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('valor') && col.toLowerCase().includes('mensalidade')
+    );
+    
+    if (!mensalidadeColumn) {
+      return { min: 0, max: 0, average: 0, count: 0 };
+    }
+    
+    let min = Infinity;
+    let max = -Infinity;
+    let total = 0;
+    let count = 0;
+    
+    processedData.employees.forEach(emp => {
+      const valor = (emp as any)[mensalidadeColumn];
+      if (valor !== null && valor !== undefined && valor !== '') {
+        let valorNumerico = valor;
+        if (typeof valor === 'string') {
+          const valorLimpo = valor.replace(/[^\d,.-]/g, '').replace(',', '.');
+          valorNumerico = parseFloat(valorLimpo);
+        }
+        
+        if (valorNumerico && typeof valorNumerico === 'number' && !isNaN(valorNumerico)) {
+          if (valorNumerico < min) min = valorNumerico;
+          if (valorNumerico > max) max = valorNumerico;
+          total += valorNumerico;
+          count++;
+        }
+      }
+    });
+    
+    return {
+      min: min === Infinity ? 0 : min,
+      max: max === -Infinity ? 0 : max,
+      average: count > 0 ? total / count : 0,
+      count
+    };
+  };
 
   // Função para calcular estatísticas por estado
   const getStateStats = () => {
@@ -663,6 +703,194 @@ const Dashboard = () => {
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5); // Top 5
+  };
+
+  // Função para calcular estatísticas por TIPO DE DEFICIÊNCIA
+  const getDeficiencyStats = () => {
+    if (!processedData) return [];
+    
+    // Procura pela coluna TIPO DEFICIÊNCIA nos dados
+    const deficiencyColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('tipo') && 
+      (col.toLowerCase().includes('deficiência') || col.toLowerCase().includes('deficiencia') || col.toLowerCase().includes('defici') || col.toLowerCase().includes('pcd'))
+    );
+    
+    if (!deficiencyColumn) return [];
+    
+    const deficiencyStats = processedData.employees.reduce((acc, emp) => {
+      const deficiency = (emp as any)[deficiencyColumn];
+      if (!deficiency || deficiency === '' || deficiency === null || deficiency === undefined) {
+        // Categoriza como "Sem Deficiência" se não houver informação
+        if (!acc['Sem Deficiência']) {
+          acc['Sem Deficiência'] = { name: 'Sem Deficiência', count: 0, color: '#e5e7eb' };
+        }
+        acc['Sem Deficiência'].count++;
+        return acc;
+      }
+      
+      // Normaliza o valor da deficiência
+      let normalizedDeficiency = deficiency.toString().trim();
+      
+      // Mapeia variações comuns para categorias padronizadas
+      const deficiencyMapping: Record<string, string> = {
+        'física': 'Física',
+        'fisica': 'Física',
+        'visual': 'Visual',
+        'auditiva': 'Auditiva',
+        'intelectual': 'Intelectual',
+        'mental': 'Mental',
+        'psicossocial': 'Psicossocial',
+        'múltipla': 'Múltipla',
+        'multiple': 'Múltipla',
+        'múltiplas': 'Múltipla',
+        'multiplas': 'Múltipla',
+        'outras': 'Outras',
+        'outra': 'Outras',
+        'não informado': 'Não Informado',
+        'nao informado': 'Não Informado',
+        'n/a': 'Não Informado',
+        'n/a.': 'Não Informado'
+      };
+      
+      // Aplica o mapeamento se existir
+      for (const [key, value] of Object.entries(deficiencyMapping)) {
+        if (normalizedDeficiency.toLowerCase().includes(key.toLowerCase())) {
+          normalizedDeficiency = value;
+          break;
+        }
+      }
+      
+      // Se não foi mapeado, mantém o valor original
+      if (!acc[normalizedDeficiency]) {
+        // Define cores específicas para cada tipo de deficiência
+        const colors: Record<string, string> = {
+          'Física': '#3b82f6',
+          'Visual': '#8b5cf6',
+          'Auditiva': '#06b6d4',
+          'Intelectual': '#10b981',
+          'Mental': '#f59e0b',
+          'Psicossocial': '#ef4444',
+          'Múltipla': '#ec4899',
+          'Outras': '#6b7280',
+          'Não Informado': '#9ca3af',
+          'Sem Deficiência': '#e5e7eb'
+        };
+        
+        acc[normalizedDeficiency] = { 
+          name: normalizedDeficiency, 
+          count: 0, 
+          color: colors[normalizedDeficiency] || '#6b7280' 
+        };
+      }
+      
+      acc[normalizedDeficiency].count++;
+      return acc;
+    }, {} as Record<string, { name: string; count: number; color: string }>);
+    
+    return Object.values(deficiencyStats)
+      .map(stat => ({
+        ...stat,
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  // Função para calcular estatísticas por MOTIVO DE AFASTAMENTO
+  const getMotivoAfastamentoStats = () => {
+    if (!processedData) return [];
+    
+    // Procura pela coluna MOTIVO AFASTAMENTO nos dados
+    const motivoAfastamentoColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('motivo') && 
+      (col.toLowerCase().includes('afastamento') || col.toLowerCase().includes('afast') || col.toLowerCase().includes('ausência') || col.toLowerCase().includes('ausencia'))
+    );
+    
+    if (!motivoAfastamentoColumn) return [];
+    
+    const motivoAfastamentoStats = processedData.employees.reduce((acc, emp) => {
+      const motivo = (emp as any)[motivoAfastamentoColumn];
+      if (!motivo || motivo === '' || motivo === null || motivo === undefined) {
+        // Categoriza como "Sem Afastamento" se não houver informação
+        if (!acc['Sem Afastamento']) {
+          acc['Sem Afastamento'] = { 
+            name: 'Sem Afastamento', 
+            count: 0, 
+            color: '#10b981',
+            icon: '✅',
+            category: 'Ativo'
+          };
+        }
+        acc['Sem Afastamento'].count++;
+        return acc;
+      }
+      
+      // Normaliza o valor do motivo
+      let normalizedMotivo = motivo.toString().trim();
+      
+      // Mapeia variações comuns para categorias padronizadas
+      const motivoMapping: Record<string, { name: string; category: string; icon: string; color: string }> = {
+        'doença': { name: 'Doença', category: 'Saúde', icon: '🏥', color: '#ef4444' },
+        'doenca': { name: 'Doença', category: 'Saúde', icon: '🏥', color: '#ef4444' },
+        'acidente': { name: 'Acidente', category: 'Acidente', icon: '🚨', color: '#dc2626' },
+        'acidente trabalho': { name: 'Acidente de Trabalho', category: 'Acidente', icon: '🚨', color: '#dc2626' },
+        'maternidade': { name: 'Maternidade', category: 'Familiar', icon: '👶', color: '#ec4899' },
+        'paternidade': { name: 'Paternidade', category: 'Familiar', icon: '👨‍👩‍👧‍👦', color: '#ec4899' },
+        'licença': { name: 'Licença', category: 'Administrativa', icon: '📋', color: '#8b5cf6' },
+        'férias': { name: 'Férias', category: 'Administrativa', icon: '🏖️', color: '#8b5cf6' },
+        'ferias': { name: 'Férias', category: 'Administrativa', icon: '🏖️', color: '#8b5cf6' },
+        'suspensão': { name: 'Suspensão', category: 'Disciplinar', icon: '⚠️', color: '#f59e0b' },
+        'suspensao': { name: 'Suspensão', category: 'Disciplinar', icon: '⚠️', color: '#f59e0b' },
+        'demissão': { name: 'Demissão', category: 'Desligamento', icon: '🚪', color: '#6b7280' },
+        'demissao': { name: 'Demissão', category: 'Desligamento', icon: '🚪', color: '#6b7280' },
+        'aposentadoria': { name: 'Aposentadoria', category: 'Desligamento', icon: '👴', color: '#6b7280' },
+        'falecimento': { name: 'Falecimento', category: 'Desligamento', icon: '🕊️', color: '#6b7280' },
+        'outros': { name: 'Outros Motivos', category: 'Diversos', icon: '❓', color: '#9ca3af' },
+        'outro': { name: 'Outros Motivos', category: 'Diversos', icon: '❓', color: '#9ca3af' },
+        'não informado': { name: 'Não Informado', category: 'Diversos', icon: '❓', color: '#9ca3af' },
+        'nao informado': { name: 'Não Informado', category: 'Diversos', icon: '❓', color: '#9ca3af' },
+        'n/a': { name: 'Não Informado', category: 'Diversos', icon: '❓', color: '#9ca3af' }
+      };
+      
+      // Aplica o mapeamento se existir
+      let mappedMotivo = null;
+      for (const [key, value] of Object.entries(motivoMapping)) {
+        if (normalizedMotivo.toLowerCase().includes(key.toLowerCase())) {
+          mappedMotivo = value;
+          break;
+        }
+      }
+      
+      // Se não foi mapeado, cria uma entrada genérica
+      if (!mappedMotivo) {
+        mappedMotivo = {
+          name: normalizedMotivo,
+          category: 'Diversos',
+          icon: '📝',
+          color: '#6b7280'
+        };
+      }
+      
+      // Cria ou atualiza a entrada no acumulador
+      if (!acc[mappedMotivo.name]) {
+        acc[mappedMotivo.name] = {
+          name: mappedMotivo.name,
+          count: 0,
+          color: mappedMotivo.color,
+          icon: mappedMotivo.icon,
+          category: mappedMotivo.category
+        };
+      }
+      
+      acc[mappedMotivo.name].count++;
+      return acc;
+    }, {} as Record<string, { name: string; count: number; color: string; icon: string; category: string }>);
+    
+    return Object.values(motivoAfastamentoStats)
+      .map(stat => ({
+        ...stat,
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count);
   };
 
   // Função para calcular estatísticas de aniversariantes por mês
@@ -1044,6 +1272,7 @@ const Dashboard = () => {
   const raceStats = getRaceStats();
 
   const mensalidadeStats = getMensalidadeStats();
+  const contribuicaoMinMaxStats = getContribuicaoMinMaxStats();
 
   return (
     <div className="space-y-6">
@@ -1058,43 +1287,15 @@ const Dashboard = () => {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card">
           <div className="card-content">
             <div className="flex items-center">
               <Users className="h-8 w-8" style={{ color: '#1d335b' }} />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Total de Registros</p>
+                <p className="text-sm font-medium text-gray-600">Total de Filiados</p>
                 <p className="text-2xl font-bold" style={{ color: '#1d335b' }}>
                   {processedData.summary.totalRecords.toLocaleString('pt-BR')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-content">
-            <div className="flex items-center">
-              <User className="h-8 w-8" style={{ color: '#1d335b' }} />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Distribuição por Gênero</p>
-                <p className="text-2xl font-bold" style={{ color: '#1d335b' }}>
-                  {genderStats.length > 0 ? genderStats.length : 0} categorias
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-content">
-            <div className="flex items-center">
-              <Users className="h-8 w-8" style={{ color: '#1d335b' }} />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Distribuição por Raça</p>
-                <p className="text-2xl font-bold" style={{ color: '#1d335b' }}>
-                  {raceStats.length > 0 ? raceStats.length : 0} categorias
                 </p>
               </div>
             </div>
@@ -1113,6 +1314,27 @@ const Dashboard = () => {
                   <p className="text-2xl font-bold" style={{ color: '#1d335b' }}>
                     {formatCurrency(mensalidadeStats.total)}
                   </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {contribuicaoMinMaxStats.count > 0 && (
+          <div className="card">
+            <div className="card-content">
+              <div className="flex items-center">
+                <DollarSign className="h-8 w-8" style={{ color: '#1d335b' }} />
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-600">Estatísticas de Mensalidades</p>
+                  <div className="space-y-1">
+                    <p className="text-lg font-bold" style={{ color: '#1d335b' }}>
+                      {formatCurrency(contribuicaoMinMaxStats.average)}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Mín: {formatCurrency(contribuicaoMinMaxStats.min)} | Média: {formatCurrency(contribuicaoMinMaxStats.average)} | Máx: {formatCurrency(contribuicaoMinMaxStats.max)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1923,6 +2145,196 @@ const Dashboard = () => {
         </div>
       )}
 
+
+
+      {/* Tipos de Deficiência */}
+      {getDeficiencyStats().length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Tipos de Deficiência</h3>
+            </div>
+          </div>
+          <div className="card-content">
+            
+
+
+            <div className="mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {getDeficiencyStats().filter(d => d.name !== 'Sem Deficiência').map((deficiency, index) => {
+                  const iconMap: Record<string, string> = {
+                    'Física': '🦽',
+                    'Visual': '👁️',
+                    'Auditiva': '👂',
+                    'Intelectual': '🧠',
+                    'Mental': '💭',
+                    'Psicossocial': '💙',
+                    'Múltipla': '🔄',
+                    'Outras': '♿',
+                    'Não Informado': '❓'
+                  };
+                  
+                  const gradientColors = [
+                    'from-blue-400 to-cyan-400',
+                    'from-purple-400 to-pink-400',
+                    'from-green-400 to-emerald-400',
+                    'from-orange-400 to-red-400',
+                    'from-indigo-400 to-purple-400',
+                    'from-pink-400 to-rose-400',
+                    'from-cyan-400 to-blue-400',
+                    'from-emerald-400 to-teal-400',
+                    'from-red-400 to-orange-400'
+                  ];
+                  
+                  return (
+                    <div 
+                      key={deficiency.name} 
+                      className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white hover:shadow-lg transition-all duration-300 hover:scale-102 cursor-pointer"
+                    >
+                      {/* Fundo com gradiente animado */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${gradientColors[index % gradientColors.length]} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                      
+                      {/* Cabeçalho do card */}
+                      <div className="relative p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-2xl">{iconMap[deficiency.name] || '♿'}</div>
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                              #{index + 1}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <h4 className="text-base font-bold text-gray-800 mb-2 group-hover:text-[#1d335b] transition-colors duration-300">
+                          {deficiency.name}
+                        </h4>
+                        
+                        {/* Estatísticas principais */}
+                        <div className="space-y-3">
+                          <div className="text-center p-2 bg-gray-50 rounded-lg">
+                            <div className="text-xl font-bold text-[#1d335b]">
+                              {deficiency.count.toLocaleString('pt-BR')}
+                            </div>
+                            <div className="text-xs text-gray-600">funcionários</div>
+                          </div>
+                          
+                          {/* Barra de progresso circular */}
+                          <div className="flex items-center justify-center">
+                            <div className="relative w-12 h-12">
+                              <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+                                <path
+                                  className="text-gray-200"
+                                  strokeWidth="3"
+                                  fill="none"
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                />
+                                <path
+                                  className="text-[#1d335b]"
+                                  strokeWidth="3"
+                                  fill="none"
+                                  strokeDasharray={`${deficiency.percentage * 1.13}, 100`}
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-xs font-bold text-[#1d335b]">
+                                  {deficiency.percentage.toFixed(1)}%
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Informações adicionais */}
+                          <div className="text-center text-xs text-gray-500 space-y-1">
+                            <div className="flex items-center justify-center space-x-2">
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: deficiency.color }}></div>
+                              <span>Cor identificadora</span>
+                            </div>
+                            <div className="text-xs">
+                              {deficiency.count > 1 ? 'Pessoas com deficiência' : 'Pessoa com deficiência'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Indicador de hover */}
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#1d335b] to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+
+
+
+
+
+          </div>
+        </div>
+      )}
+
+            {/* Motivo de Afastamento */}
+      {getMotivoAfastamentoStats().length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Motivo de Afastamento</h3>
+              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                {getMotivoAfastamentoStats().length} motivos
+              </span>
+            </div>
+          </div>
+          <div className="card-content">
+                         {/* Tabela Simples */}
+             <div className="overflow-hidden">
+               <div className="overflow-x-auto">
+                 <table className="min-w-full divide-y divide-gray-200">
+                   <thead className="bg-gray-50">
+                     <tr>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motivo</th>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionários</th>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentual</th>
+                     </tr>
+                   </thead>
+                   <tbody className="bg-white divide-y divide-gray-200">
+                     {getMotivoAfastamentoStats().map((motivo, index) => (
+                       <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <span className="text-sm font-medium" style={{ color: '#1d335b' }}>{motivo.name}</span>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: '#2f4a8c' }}>
+                           {motivo.count.toLocaleString('pt-BR')}
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <div className="flex items-center space-x-3">
+                             <div className="flex-1">
+                               <div className="w-full bg-gray-200 rounded-full h-2">
+                                 <div 
+                                   className="h-2 rounded-full transition-all duration-500 ease-out"
+                                   style={{ 
+                                     backgroundColor: '#c9504c',
+                                     width: `${motivo.percentage}%`
+                                   }}
+                                 ></div>
+                               </div>
+                             </div>
+                             <span className="text-sm font-medium" style={{ color: '#c9504c' }}>
+                               {motivo.percentage.toFixed(1)}%
+                             </span>
+                           </div>
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+               </div>
+             </div>
+          </div>
+        </div>
+      )}
+
       {/* Aniversariantes do Mês - Gráfico de Barras */}
       {getBirthdayStats().length > 0 ? (
         <div className="card">
@@ -1979,7 +2391,7 @@ const Dashboard = () => {
             <div className="space-y-4">
               {/* Grid de Cards por Mês - 6 por linha */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {getBirthdayStats().map((month, index) => {
+                {getBirthdayStats().map((month) => {
                   const currentMonth = new Date().getMonth() + 1; // Mês atual (1-12)
                   const isCurrentMonth = month.monthNumber === currentMonth;
                   const totalAniversariantes = getBirthdayStats().reduce((sum, m) => sum + m.count, 0);
@@ -2524,24 +2936,7 @@ const Dashboard = () => {
 
       </div>
 
-      {/* Informações sobre as colunas */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Colunas Detectadas</h3>
-        </div>
-        <div className="card-content">
-          <div className="flex flex-wrap gap-2">
-            {processedData.columns.map((column, index) => (
-              <span 
-                key={index} 
-                className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full"
-              >
-                {column}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 };

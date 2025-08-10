@@ -1,21 +1,44 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema web moderno para entidades sindicais gerenciarem informações dos empregados filiados';
-export const LAST_UPDATE = '2025-01-XX';
+export const LAST_UPDATE = '2025-01-15';
 
 export const VERSION_FEATURES = [
   'Dashboard completo com visualizações de dados',
   'Tabela de aniversariantes da semana com navegação',
   'Sistema de rolagem personalizado',
   'Destaque para aniversariantes do dia',
+  'Tópico Motivo de Afastamento com dados estatísticos',
   'Interface responsiva e moderna',
   'Paleta de cores UniSafe harmoniosa'
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.4.0',
+    date: 'Janeiro 2025',
+    features: [
+      'Tópico Motivo de Afastamento no Dashboard',
+      'Tabela simplificada com dados estatísticos',
+      'Barras de progresso para percentuais',
+      'Remoção da seção Colunas Detectadas',
+      'Interface mais limpa e focada'
+    ]
+  },
+  {
+    version: '1.3.0',
+    date: 'Dezembro 2024',
+    features: [
+      'Tabela de aniversariantes da semana',
+      'Navegação por semanas (anterior/próxima)',
+      'Destaque visual para aniversariantes do dia',
+      'Sistema de rolagem com barra personalizada',
+      'Ordenação inteligente por data e nome'
+    ]
+  },
   {
     version: '1.2.0',
     date: 'Dezembro 2024',
