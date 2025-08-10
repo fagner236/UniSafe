@@ -8,6 +8,7 @@ import {
   X
 } from 'lucide-react';
 import { useState } from 'react';
+import { getVersionString } from '../config/version';
 
 const navigation = [
   { name: 'Upload', href: '/upload', icon: Upload },
@@ -67,10 +68,10 @@ const Sidebar = () => {
                 </NavLink>
               ))}
             </nav>
-            {/* Footer com versão */}
+            {/* Footer com versão dinâmica */}
             <div className="px-4 py-3 border-t" style={{ borderColor: '#c9504c' }}>
               <p className="text-xs text-center" style={{ color: '#ffc9c0' }}>
-                v1.0.0
+                {getVersionString()}
               </p>
             </div>
         </div>
@@ -113,10 +114,10 @@ const Sidebar = () => {
                 </NavLink>
               ))}
             </nav>
-            {/* Footer com versão */}
+            {/* Footer com versão dinâmica */}
             <div className="px-4 py-3 border-t" style={{ borderColor: '#c9504c' }}>
               <p className="text-xs text-center" style={{ color: '#ffc9c0' }}>
-                v1.0.0
+                {getVersionString()}
               </p>
             </div>
         </div>

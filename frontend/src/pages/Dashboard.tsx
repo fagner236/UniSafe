@@ -474,79 +474,193 @@ const Dashboard = () => {
     return membershipStats;
   };
 
-  // Função para calcular estatísticas por cargo/posição
-  const getPositionStats = () => {
-    if (!processedData) return [];
-    
-    const positionStats = processedData.employees.reduce((acc, emp) => {
-      if (!emp.position) return acc;
-      
-      if (!acc[emp.position]) {
-        acc[emp.position] = {
-          name: emp.position,
-          count: 0,
-          totalSalary: 0,
-          departments: new Set()
-        };
-      }
-      
-      acc[emp.position].count++;
-      acc[emp.position].totalSalary += emp.salary || 0;
-      if (emp.department) {
-        acc[emp.position].departments.add(emp.department);
-      }
-      
-      return acc;
-    }, {} as Record<string, { name: string; count: number; totalSalary: number; departments: Set<string> }>);
-    
-    return Object.values(positionStats)
-      .map(stat => ({
-        ...stat,
-        averageSalary: stat.totalSalary / stat.count,
-        departmentCount: stat.departments.size,
-        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-  };
+
 
   // Função para calcular estatísticas por faixa etária (baseada na data de admissão)
   const getAgeGroupStats = () => {
     if (!processedData) return [];
     
-    const now = new Date();
-    const ranges = [
-      { min: 18, max: 25, label: '18-25 anos' },
-      { min: 26, max: 35, label: '26-35 anos' },
-      { min: 36, max: 45, label: '36-45 anos' },
-      { min: 46, max: 55, label: '46-55 anos' },
-      { min: 56, max: 65, label: '56-65 anos' },
-      { min: 66, max: Infinity, label: 'Acima de 65 anos' }
+    const ageGroups = [
+      { range: '18-25 anos', min: 18, max: 25 },
+      { range: '26-35 anos', min: 26, max: 35 },
+      { range: '36-45 anos', min: 36, max: 45 },
+      { range: '46-55 anos', min: 46, max: 55 },
+      { range: '56-65 anos', min: 56, max: 65 },
+      { range: 'Acima de 65 anos', min: 66, max: 999 }
     ];
     
-    const ageStats = ranges.map(range => {
+    const stats = ageGroups.map(group => {
       const count = processedData.employees.filter(emp => {
         if (!emp.admissionDate) return false;
-        
-        const admissionDate = new Date(emp.admissionDate);
-        const age = now.getFullYear() - admissionDate.getFullYear();
-        const monthDiff = now.getMonth() - admissionDate.getMonth();
-        
-        if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < admissionDate.getDate())) {
-          return age - 1 >= range.min && age - 1 < range.max;
-        }
-        
-        return age >= range.min && age < range.max;
+        const admissionYear = new Date(emp.admissionDate).getFullYear();
+        const currentYear = new Date().getFullYear();
+        const age = currentYear - admissionYear;
+        return age >= group.min && age <= group.max;
       }).length;
       
       return {
-        range: range.label,
+        range: group.range,
         count,
         percentage: processedData.summary.validRecords > 0 ? (count / processedData.summary.validRecords) * 100 : 0
       };
     }).filter(stat => stat.count > 0);
     
-    return ageStats;
+    return stats.sort((a, b) => b.count - a.count);
+  };
+
+  // Função para calcular estatísticas por CARGO
+  const getCargoStats = () => {
+    if (!processedData) return [];
+    
+    const cargoColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('cargo') && 
+      !col.toLowerCase().includes('especialidade') && 
+      !col.toLowerCase().includes('nível')
+    );
+    
+    if (!cargoColumn) return [];
+    
+    const cargoStats = processedData.employees.reduce((acc, emp) => {
+      const cargo = emp[cargoColumn as keyof typeof emp] as string;
+      if (!cargo) return acc;
+      
+      if (!acc[cargo]) {
+        acc[cargo] = { name: cargo, count: 0 };
+      }
+      acc[cargo].count++;
+      return acc;
+    }, {} as Record<string, { name: string; count: number }>);
+    
+    return Object.values(cargoStats)
+      .map(stat => ({
+        ...stat,
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // Top 5
+  };
+
+  // Função para calcular estatísticas por CARGO ESPECIALIDADE
+  const getCargoEspecialidadeStats = () => {
+    if (!processedData) return [];
+    
+    const especialidadeColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('especialidade')
+    );
+    
+    if (!especialidadeColumn) return [];
+    
+    const especialidadeStats = processedData.employees.reduce((acc, emp) => {
+      const especialidade = emp[especialidadeColumn as keyof typeof emp] as string;
+      if (!especialidade) return acc;
+      
+      if (!acc[especialidade]) {
+        acc[especialidade] = { name: especialidade, count: 0 };
+      }
+      acc[especialidade].count++;
+      return acc;
+    }, {} as Record<string, { name: string; count: number }>);
+    
+    return Object.values(especialidadeStats)
+      .map(stat => ({
+        ...stat,
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // Top 5
+  };
+
+  // Função para calcular estatísticas por CARGO NÍVEL
+  const getCargoNivelStats = () => {
+    if (!processedData) return [];
+    
+    const nivelColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('nível') || col.toLowerCase().includes('nivel')
+    );
+    
+    if (!nivelColumn) return [];
+    
+    const nivelStats = processedData.employees.reduce((acc, emp) => {
+      const nivel = emp[nivelColumn as keyof typeof emp] as string;
+      if (!nivel) return acc;
+      
+      if (!acc[nivel]) {
+        acc[nivel] = { name: nivel, count: 0 };
+      }
+      acc[nivel].count++;
+      return acc;
+    }, {} as Record<string, { name: string; count: number }>);
+    
+    return Object.values(nivelStats)
+      .map(stat => ({
+        ...stat,
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // Top 5
+  };
+
+  // Função para calcular estatísticas por FUNÇÃO
+  const getFuncaoStats = () => {
+    if (!processedData) return [];
+    
+    const funcaoColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('função') || col.toLowerCase().includes('funcao')
+    );
+    
+    if (!funcaoColumn) return [];
+    
+    const funcaoStats = processedData.employees.reduce((acc, emp) => {
+      const funcao = emp[funcaoColumn as keyof typeof emp] as string;
+      if (!funcao) return acc;
+      
+      if (!acc[funcao]) {
+        acc[funcao] = { name: funcao, count: 0 };
+      }
+      acc[funcao].count++;
+      return acc;
+    }, {} as Record<string, { name: string; count: number }>);
+    
+    return Object.values(funcaoStats)
+      .map(stat => ({
+        ...stat,
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // Top 5
+  };
+
+  // Função para calcular estatísticas por JORNADA DE TRABALHO
+  const getJornadaStats = () => {
+    if (!processedData) return [];
+    
+    const jornadaColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('jornada') || 
+      col.toLowerCase().includes('horário') || 
+      col.toLowerCase().includes('horario') ||
+      col.toLowerCase().includes('turno')
+    );
+    
+    if (!jornadaColumn) return [];
+    
+    const jornadaStats = processedData.employees.reduce((acc, emp) => {
+      const jornada = emp[jornadaColumn as keyof typeof emp] as string;
+      if (!jornada) return acc;
+      
+      if (!acc[jornada]) {
+        acc[jornada] = { name: jornada, count: 0 };
+      }
+      acc[jornada].count++;
+      return acc;
+    }, {} as Record<string, { name: string; count: number }>);
+    
+    return Object.values(jornadaStats)
+      .map(stat => ({
+        ...stat,
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // Top 5
   };
 
 
@@ -1125,53 +1239,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Estatísticas por Cargo/Posição */}
-      {getPositionStats().length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 10 Cargos/Posições</h3>
-          </div>
-          <div className="card-content">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cargo</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionários</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distribuição</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {getPositionStats().map((position, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {position.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {position.count.toLocaleString('pt-BR')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="h-2 rounded-full transition-all duration-300"
-                            style={{ 
-                              backgroundColor: '#c9504c',
-                              width: `${position.percentage}%`
-                            }}
-                          ></div>
-                        </div>
-                        <span className="text-xs text-gray-500">
-                          {position.percentage.toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Estatísticas por Faixa Etária */}
       {getAgeGroupStats().length > 0 && (
@@ -1216,6 +1284,251 @@ const Dashboard = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Principais Cargos - Cards com Gradientes */}
+      {getCargoStats().length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Principais Cargos</h3>
+          </div>
+          <div className="card-content">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {getCargoStats().map((cargo, index) => {
+                  const colors = [
+                    'from-[#2f4a8c] to-[#1d335b]',
+                    'from-[#f9695f] to-[#c9504c]',
+                    'from-[#2f4a8c] to-[#1d335b]',
+                    'from-[#f9695f] to-[#c9504c]',
+                    'from-[#2f4a8c] to-[#1d335b]'
+                  ];
+                  const icons = ['👔', '👷', '💼', '🔧', '📊'];
+                
+                return (
+                  <div key={cargo.name} className="relative overflow-hidden rounded-lg">
+                    <div className={`bg-gradient-to-r ${colors[index % colors.length]} p-4 text-white`}>
+                                               <div className="flex items-center justify-between">
+                           <div className="flex items-center space-x-3">
+                             <span className="text-2xl">{icons[index % icons.length]}</span>
+                             <div>
+                               <h4 className="font-semibold text-sm truncate">{cargo.name}</h4>
+                               <p className="text-xs opacity-90">{cargo.count.toLocaleString('pt-BR')} funcionários</p>
+                             </div>
+                           </div>
+                           <div className="text-right">
+                             <div className="text-2xl font-bold">{cargo.percentage.toFixed(1)}%</div>
+                             <div className="text-xs opacity-90">do total</div>
+                           </div>
+                         </div>
+                      <div className="mt-3">
+                        <div className="w-full bg-white bg-opacity-20 rounded-full h-2">
+                          <div 
+                            className="bg-white h-2 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${cargo.percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Principais Especialidades - Timeline Vertical */}
+      {getCargoEspecialidadeStats().length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Principais Especialidades</h3>
+          </div>
+          <div className="card-content">
+            <div className="space-y-4">
+                              {getCargoEspecialidadeStats().map((especialidade, index) => {
+                  const colors = ['bg-[#ffc9c0]', 'bg-[#f9695f]', 'bg-[#ffc9c0]', 'bg-[#f9695f]', 'bg-[#ffc9c0]'];
+                  const borderColors = ['border-[#c9504c]', 'border-[#c9504c]', 'border-[#c9504c]', 'border-[#c9504c]', 'border-[#c9504c]'];
+                
+                return (
+                  <div key={especialidade.name} className="relative">
+                    {index < getCargoEspecialidadeStats().length - 1 && (
+                      <div className="absolute left-6 top-12 w-0.5 h-8 bg-gray-300"></div>
+                    )}
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-12 h-12 rounded-full ${colors[index % colors.length]} ${borderColors[index % borderColors.length]} border-2 flex items-center justify-center text-lg font-bold text-gray-700`}>
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-gray-900">{especialidade.name}</h4>
+                                            <div className="text-right">
+                    <span className="text-2xl font-bold text-[#c9504c]">{especialidade.percentage.toFixed(1)}%</span>
+                  </div>
+                        </div>
+                                                 <div className="flex items-center justify-between mt-1">
+                           <span className="text-sm text-gray-600">{especialidade.count.toLocaleString('pt-BR')} funcionários</span>
+                           <div className="flex-1 mx-4">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-[#c9504c] h-2 rounded-full transition-all duration-700 ease-out"
+                                style={{ width: `${especialidade.percentage}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+              {/* Principais Níveis - Pirâmide Hierárquica */}
+        {getCargoNivelStats().length > 0 && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Principais Níveis dos Cargos</h3>
+            </div>
+            <div className="card-content">
+              <div className="flex flex-col items-center space-y-3">
+                {getCargoNivelStats().map((nivel, index) => {
+                  const minWidth = Math.max(72, 90 - (index * 10.8)); // 10% menor que o original // Largura mínima de 80% e redução mais suave
+                  // Aplicar cor #ffc9c0 para o nível básico (geralmente o primeiro ou com menor contagem)
+                  const isBasicLevel = index === 0; // Assumindo que o primeiro é o nível básico
+                  const colors = isBasicLevel 
+                    ? 'bg-[#ffc9c0]' 
+                    : ['bg-[#2f4a8c]', 'bg-[#f9695f]', 'bg-[#1d335b]', 'bg-[#c9504c]'][(index - 1) % 4];
+                  
+                  return (
+                    <div key={nivel.name} className="relative flex items-center justify-center w-full">
+                                          <div 
+                      className={`${colors} ${isBasicLevel ? 'text-[#c9504c]' : 'text-white'} px-8 py-4 rounded-lg shadow-lg transition-all duration-500 ease-out hover:scale-105 min-w-[300px]`}
+                      style={{ width: `${minWidth}%` }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-base truncate flex-1 mr-4">{nivel.name}</span>
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-xl font-bold">{nivel.count.toLocaleString('pt-BR')}</div>
+                          <div className="text-sm opacity-90">{nivel.percentage.toFixed(1)}%</div>
+                        </div>
+                      </div>
+                    </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* Principais Funções - Grid de Badges */}
+      {getFuncaoStats().length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Principais Funções</h3>
+          </div>
+          <div className="card-content">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {getFuncaoStats().map((funcao, index) => {
+                const colors = ['bg-[#ffc9c0]', 'bg-[#f9695f]', 'bg-[#ffc9c0]', 'bg-[#f9695f]', 'bg-[#ffc9c0]'];
+                const textColors = ['text-[#c9504c]', 'text-white', 'text-[#c9504c]', 'text-white', 'text-[#c9504c]'];
+                
+                return (
+                  <div key={funcao.name} className={`${colors[index % colors.length]} ${textColors[index % textColors.length]} rounded-xl p-4 hover:shadow-md transition-all duration-300`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-sm truncate">{funcao.name}</h4>
+                      <span className="text-xs opacity-75">#{index + 1}</span>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold mb-1">{funcao.count.toLocaleString('pt-BR')}</div>
+                      <div className="text-sm opacity-75">funcionários</div>
+                    </div>
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span>Distribuição</span>
+                        <span className="font-medium">{funcao.percentage.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-white bg-opacity-50 rounded-full h-2">
+                        <div 
+                          className={`${textColors[index % textColors.length].replace('text-', 'bg-').replace('white', '#f9695f').replace('-800', '-500')} h-2 rounded-full transition-all duration-500 ease-out`}
+                          style={{ width: `${funcao.percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Jornadas de Trabalho - Gráfico de Pizza Visual */}
+      {getJornadaStats().length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Jornadas de Trabalho</h3>
+          </div>
+          <div className="card-content">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Gráfico de Pizza Visual */}
+              <div className="flex items-center justify-center">
+                <div className="relative w-48 h-48">
+                  {getJornadaStats().map((jornada, index) => {
+                    const colors = ['#2f4a8c', '#f9695f', '#1d335b', '#c9504c', '#ffc9c0'];
+                    const total = getJornadaStats().reduce((sum, j) => sum + j.count, 0);
+                    const startAngle = getJornadaStats()
+                      .slice(0, index)
+                      .reduce((sum, j) => sum + (j.count / total) * 360, 0);
+                    const angle = (jornada.count / total) * 360;
+                    
+                    return (
+                      <div
+                        key={jornada.name}
+                        className="absolute inset-0 rounded-full"
+                        style={{
+                          background: `conic-gradient(from ${startAngle}deg, ${colors[index % colors.length]} 0deg, ${colors[index % colors.length]} ${angle}deg, transparent ${angle}deg)`
+                        }}
+                      ></div>
+                    );
+                  })}
+                  <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-700">{getJornadaStats().reduce((sum, j) => sum + j.count, 0)}</div>
+                      <div className="text-xs text-gray-500">Total</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Legenda */}
+              <div className="space-y-3">
+                                 {getJornadaStats().map((jornada, index) => {
+                   const colors = ['#2f4a8c', '#f9695f', '#1d335b', '#c9504c', '#ffc9c0'];
+                  
+                  return (
+                    <div key={jornada.name} className="flex items-center space-x-3">
+                      <div 
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: colors[index % colors.length] }}
+                      ></div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm truncate">{jornada.name}</span>
+                          <span className="text-sm font-bold text-gray-700">{jornada.count.toLocaleString('pt-BR')}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">{jornada.percentage.toFixed(1)}% do total</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -1305,25 +1618,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Gráfico de Barras - Top Cargos */}
-        {getPositionStats().length > 0 && (
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 10 Cargos/Posições</h3>
-            </div>
-            <div className="card-content">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={getPositionStats()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [value, 'Funcionários']} />
-                  <Bar dataKey="count" fill="#4f46e5" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
+
 
         {/* Gráfico de Pizza - Distribuição por Faixa Etária */}
         {getAgeGroupStats().length > 0 && (
