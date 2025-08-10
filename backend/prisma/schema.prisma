@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  uploads   Upload[]
+
+  @@map("users")
+}
+
+model Employee {
+  id              String   @id @default(cuid())
+  name            String
+  cpf             String   @unique
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  position        String
+  department      String
+  company         String
+  admissionDate   DateTime
+  salary          Float
+  status          String   @default("active") // active, inactive, pending
+  unionMemberSince DateTime @default(now())
+  lastUpdate      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  uploadId        String?
+  upload          Upload?  @relation(fields: [uploadId], references: [id])
+
+  @@map("employees")
+}
+
+model Upload {
+  id              String   @id @default(cuid())
+  filename        String
+  originalName    String
+  size            Int
+  mimetype        String
+  path            String
+  status          String   @default("pending") // pending, processing, completed, error
+  uploadedBy      String
+  uploadedAt      DateTime @default(now())
+  processedAt     DateTime?
+  errorMessage    String?
+  totalRecords    Int?
+  processedRecords Int?
+  
+  // Relacionamentos
+  user            User       @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  employees       Employee[]
+
+  @@map("uploads")
+}
+
+model Company {
+  id            String   @id @default(cuid())
+  name          String
+  cnpj          String   @unique
+  address       String
+  city          String
+  state         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("companies")
+}
