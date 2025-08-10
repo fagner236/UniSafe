@@ -248,6 +248,39 @@ UniSafe/
   - Header com navegação
   - Componentes de formulário
 
+### 8. Sistema de Versionamento
+- ✅ Controle automático de versões com Git
+- ✅ Scripts de versionamento automatizados
+- ✅ Sistema de rollback para versões anteriores
+- ✅ Atualização automática de documentação
+- ✅ CHANGELOG automático e detalhado
+- ✅ Backup automático de versões
+- ✅ Tags Git para cada release
+
+#### Scripts Disponíveis
+- **`./scripts/version.sh`** - Criar nova versão (patch/minor/major)
+- **`./scripts/rollback.sh`** - Fazer rollback para versão anterior
+- **`./scripts/version-status.sh`** - Ver status atual das versões
+- **`./scripts/install-versioning.sh`** - Instalar sistema de versionamento
+
+#### Como Usar
+```bash
+# Ver status atual
+./scripts/version-status.sh
+
+# Criar nova versão patch (1.0.0 → 1.0.1)
+./scripts/version.sh patch "Correções de bugs"
+
+# Criar nova versão minor (1.0.0 → 1.1.0)
+./scripts/version.sh minor "Novas funcionalidades"
+
+# Criar nova versão major (1.0.0 → 2.0.0)
+./scripts/version.sh major "Mudanças incompatíveis"
+
+# Fazer rollback para versão anterior
+./scripts/rollback.sh 1.0.0
+```
+
 ---
 
 ## 🔧 Problemas Resolvidos
@@ -338,6 +371,7 @@ UniSafe/
 
 ### Pré-requisitos
 - Node.js 18+
+- Git instalado (para versionamento)
 - MySQL 8.0+
 - npm ou yarn
 
