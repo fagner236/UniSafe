@@ -84,6 +84,26 @@ Após executar o seed do banco de dados, você pode acessar o sistema com as seg
 
 📋 **Documentação completa das credenciais**: [CREDENCIAIS.md](./CREDENCIAIS.md)
 
+## 🔧 Versões e Changelog
+
+### 📊 **Versão Atual: v1.3.0** *(Janeiro 2025)*
+- ✨ **Interatividade aprimorada** no tópico "Jornadas de Trabalho"
+- ✨ **Efeitos de hover na legenda** com feedback visual rico
+- ✨ **Interação cruzada** entre legenda e gráfico
+- ✨ **Gráfico de pizza limpo** e profissional
+- ✨ **Formatação de números** com separadores de milhar
+- ✨ **Interface responsiva** e otimizada
+
+### 📈 **Histórico de Versões**
+- **v1.3.0** (Janeiro 2025): Interatividade e refinamentos do Dashboard
+- **v1.2.0** (Dezembro 2024): Tabela de aniversariantes da semana
+- **v1.1.0** (Agosto 2025): Correções de layout e otimizações
+- **v1.0.0** (Agosto 2025): Dashboard completo com visualizações
+
+📋 **Changelog detalhado**: [CHANGELOG_DASHBOARD.md](./CHANGELOG_DASHBOARD.md)
+
+---
+
 ## 📋 Funcionalidades
 
 ### 🔐 Autenticação
@@ -96,8 +116,13 @@ Após executar o seed do banco de dados, você pode acessar o sistema com as seg
 - Estatísticas gerais dos filiados
 - Visão rápida de dados importantes
 - Gráficos e métricas avançadas
-- **Novas funcionalidades:**
+- **Funcionalidades Avançadas:**
   - Análise por gênero e raça
+  - **Tabela de Aniversariantes da Semana** (v1.2.0)
+    - Navegação por semanas (anterior, atual, próxima)
+    - Destaque visual para aniversariantes do dia
+    - Sistema de rolagem personalizado
+    - Ordenação inteligente por data e nome
   - Estatísticas por município e lotação
   - Gráficos de distribuição percentual
   - Formatação brasileira com separação por milhar

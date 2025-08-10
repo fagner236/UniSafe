@@ -215,5 +215,5 @@ cat frontend/src/config/version.ts | grep APP_VERSION
 
 **🚀 Sistema de Controle de Versão UniSafe - IMPLEMENTADO COM SUCESSO!**
 
-**Data:** Agosto 2025 | **Versão:** 1.1.0 | **Status:** ✅ **FUNCIONANDO**  
+**Data:** Agosto 2025 | **Versão:** 1.2.0 | **Status:** ✅ **FUNCIONANDO**  
 **Funcionalidade:** Controle de versão dinâmico na barra lateral
