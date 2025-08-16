@@ -1,23 +1,35 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.6.2';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema web moderno para entidades sindicais gerenciarem informações dos empregados filiados';
-export const LAST_UPDATE = '2025-01-15';
+export const LAST_UPDATE = '2025-08-16';
 
 export const VERSION_FEATURES = [
-  'Sistema de verificação de CNPJ em tempo real',
-  'Interface administrativa completa',
-  'Dashboard aprimorado com novas estatísticas',
-  'Validação avançada de dados brasileiros',
-  'Paleta de cores UniSafe implementada',
-  'Sistema de administração completo',
-  'Verificação automática de CNPJ duplicado',
-  'Interface responsiva e moderna'
+  'Atualizações de dependências (React 18.3.0, Express 5.1.0, Prisma 6.14.0)',
+  'Sistema de versionamento corrigido e automatizado',
+  'Melhorias no sistema de verificação de CNPJ',
+  'Configurações de segurança atualizadas',
+  'Documentação completa e atualizada',
+  'Scripts de versionamento funcionando perfeitamente',
+  'Interface responsiva e moderna',
+  'Sistema estável e otimizado'
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.6.2',
+    date: 'Agosto 2025',
+    features: [
+      'Atualizações de dependências (React 18.3.0, Express 5.1.0, Prisma 6.14.0)',
+      'Sistema de versionamento corrigido e automatizado',
+      'Melhorias no sistema de verificação de CNPJ',
+      'Configurações de segurança atualizadas',
+      'Documentação completa e atualizada',
+      'Scripts de versionamento funcionando perfeitamente'
+    ]
+  },
   {
     version: '1.6.0',
     date: 'Janeiro 2025',
