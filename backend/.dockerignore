@@ -1,0 +1,36 @@
+# Arquivos e diretórios ignorados no Docker build
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.env.local
+.env.development
+.env.test
+*.log
+coverage
+.nyc_output
+.DS_Store
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Arquivos de desenvolvimento
+src/**/*.test.ts
+src/**/*.spec.ts
+test
+tests
+__tests__
+
+# Arquivos temporários
+tmp
+temp
+uploads/*
+!uploads/.gitkeep
+
+# Build artifacts
+dist
+build

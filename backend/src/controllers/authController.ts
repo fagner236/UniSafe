@@ -1,13 +1,20 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { name, email, password } = req.body;
+    const { nome, email, password, companyId } = req.body;
+
+    console.log('🔍 Dados recebidos no registro:', { nome, email, companyId });
+
+    // Validação adicional de segurança
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'fallback-secret') {
+      throw new Error('JWT_SECRET não configurado corretamente');
+    }
 
     // Verificar se usuário já existe
     const existingUser = await prisma.user.findUnique({
@@ -21,34 +28,80 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    // Hash da senha
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // Se companyId for fornecido, verificar se a empresa existe
+    let perfil = 'user'; // Valor padrão
+    
+    if (companyId) {
+      console.log('🏢 Verificando empresa com ID:', companyId);
+      
+      const company = await prisma.company.findUnique({
+        where: { id_empresa: companyId }
+      });
 
-    // Criar usuário
+      if (!company) {
+        console.log('❌ Empresa não encontrada com ID:', companyId);
+        return res.status(400).json({
+          success: false,
+          message: 'Empresa não encontrada'
+        });
+      }
+
+      console.log('✅ Empresa encontrada:', company.razao_social);
+
+      // Verificar se é o primeiro usuário da empresa para definir perfil como admin
+      const userCount = await prisma.user.count({
+        where: { id_empresa: companyId }
+      });
+
+      perfil = userCount === 0 ? 'admin' : 'user';
+      console.log('👤 Perfil definido como:', perfil, '(usuários na empresa:', userCount, ')');
+    } else {
+      console.log('⚠️ Nenhum companyId fornecido');
+    }
+
+    // Hash da senha com rounds configuráveis
+    const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Dados para criação do usuário
+    const userData = {
+      nome: nome.trim(),
+      email: email.toLowerCase().trim(),
+      senha: hashedPassword,
+      perfil: perfil,
+      id_empresa: companyId || null,
+      data_criacao: new Date(),
+      data_atualizacao: new Date()
+    };
+
+    console.log('📝 Dados para criação do usuário:', userData);
+
+    // Criar usuário com dados sanitizados
     const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: 'user'
-      },
+      data: userData,
       select: {
-        id: true,
-        name: true,
+        id_usuario: true,
+        nome: true,
         email: true,
-        role: true,
-        createdAt: true
+        perfil: true,
+        id_empresa: true,
+        data_criacao: true
       }
     });
 
+    console.log('✅ Usuário criado com sucesso:', user);
+
     // Gerar token JWT
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'fallback-secret',
+      { userId: user.id_usuario, email: user.email },
+      process.env.JWT_SECRET!,
       { expiresIn: '24h' }
     );
 
-    res.status(201).json({
+    // Log de auditoria
+    console.log(`[AUDIT] Novo usuário registrado: ${email} - ${new Date().toISOString()}`);
+
+    return res.status(201).json({
       success: true,
       message: 'Usuário criado com sucesso',
       data: {
@@ -57,8 +110,8 @@ export const register = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Erro no registro:', error);
-    res.status(500).json({
+    console.error('❌ Erro no registro:', error);
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });
@@ -69,22 +122,29 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
+    // Validação de segurança
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'fallback-secret') {
+      throw new Error('JWT_SECRET não configurado corretamente');
+    }
+
     // Buscar usuário
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { email: email.toLowerCase().trim() }
     });
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Credenciais inválidas'
+        message: 'Usuário não localizado!'
       });
     }
 
     // Verificar senha
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.senha);
 
     if (!isValidPassword) {
+      // Log de tentativa de login falhada
+      console.log(`[SECURITY] Tentativa de login falhada para: ${email} - ${new Date().toISOString()}`);
       return res.status(401).json({
         success: false,
         message: 'Credenciais inválidas'
@@ -93,28 +153,31 @@ export const login = async (req: Request, res: Response) => {
 
     // Gerar token JWT
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'fallback-secret',
+      { userId: user.id_usuario, email: user.email },
+      process.env.JWT_SECRET!,
       { expiresIn: '24h' }
     );
 
-    res.json({
+    // Log de auditoria de login bem-sucedido
+    console.log(`[AUDIT] Login bem-sucedido: ${email} - ${new Date().toISOString()}`);
+
+    return res.json({
       success: true,
       message: 'Login realizado com sucesso',
       data: {
         user: {
-          id: user.id,
-          name: user.name,
+          id: user.id_usuario,
+          nome: user.nome,
           email: user.email,
-          role: user.role,
-          createdAt: user.createdAt
+          perfil: user.perfil,
+          data_criacao: user.data_criacao
         },
         token
       }
     });
   } catch (error) {
     console.error('Erro no login:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });
@@ -124,13 +187,13 @@ export const login = async (req: Request, res: Response) => {
 export const getProfile = async (req: any, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
+      where: { id_usuario: req.user.id_usuario },
       select: {
-        id: true,
-        name: true,
+        id_usuario: true,
+        nome: true,
         email: true,
-        role: true,
-        createdAt: true
+        perfil: true,
+        data_criacao: true
       }
     });
 
@@ -138,16 +201,16 @@ export const getProfile = async (req: any, res: Response) => {
       return res.status(404).json({
         success: false,
         message: 'Usuário não encontrado'
-      });
+        });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: user
     });
   } catch (error) {
     console.error('Erro ao buscar perfil:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });

@@ -6,9 +6,9 @@ const prisma = new PrismaClient();
 
 export interface AuthRequest extends Request {
   user?: {
-    id: string;
+    id_usuario: string;
     email: string;
-    role: string;
+    perfil: string;
   };
 }
 
@@ -23,15 +23,20 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction) 
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
+    // Validação de segurança do JWT_SECRET
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'fallback-secret') {
+      throw new Error('JWT_SECRET não configurado corretamente');
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
     
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id_usuario: decoded.userId },
       select: {
-        id: true,
+        id_usuario: true,
         email: true,
-        role: true,
-        name: true
+        perfil: true,
+        nome: true
       }
     });
 
@@ -43,7 +48,7 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction) 
     }
 
     req.user = user;
-    next();
+    return next();
   } catch (error) {
     return res.status(401).json({
       success: false,
@@ -61,13 +66,13 @@ export const requireRole = (roles: string[]) => {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (!roles.includes(req.user.perfil)) {
       return res.status(403).json({
         success: false,
         message: 'Permissão insuficiente'
       });
     }
 
-    next();
+    return next();
   };
 };

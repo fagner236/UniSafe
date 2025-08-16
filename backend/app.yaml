@@ -1,0 +1,11 @@
+runtime: nodejs20
+service: unisafe
+
+entrypoint: node server.js
+
+env_variables:
+  DATABASE_URL: "mysql://user-db:@Evia**2021@/cloudsql/evia-app:us-central1:3306/UniSafe"
+  JWT_SECRET: "sindicato-super-secret-jwt-key-change-this-in-production"
+  PORT: "3000"
+  NODE_ENV: "development"
+  CORS_ORIGIN: "http://unisafe.evia.com.br:5173"

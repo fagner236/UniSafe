@@ -1,7 +1,8 @@
 {
   "name": "unisafe-frontend",
+  "version": "1.5.0",
+  "description": "Frontend do sistema UniSafe - Sistema web moderno para entidades sindicais",
   "private": true,
-  "version": "1.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

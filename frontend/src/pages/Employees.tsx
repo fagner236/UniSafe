@@ -131,7 +131,7 @@ const Employees = () => {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Filiados</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Base de Dados</h1>
           <p className="text-gray-600">Visualize todos os registros do arquivo carregado</p>
         </div>
         
@@ -143,7 +143,7 @@ const Employees = () => {
                 Nenhum arquivo carregado
               </h3>
               <p className="text-gray-500 mb-6">
-                Para visualizar os filiados, faça upload de um arquivo Excel ou CSV na página de Upload.
+                Para visualizar os dados, faça upload de um arquivo Excel ou CSV na página de Upload.
               </p>
               <a
                 href="/upload"
@@ -163,7 +163,7 @@ const Employees = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Filiados</h1>
+          <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Base de Dados</h1>
           <p className="text-gray-600">
             Visualizando {processedData!.summary.totalRecords.toLocaleString('pt-BR')} registros do arquivo: {processedData!.fileName}
           </p>
@@ -239,7 +239,7 @@ const Employees = () => {
         </div>
       </div>
 
-      {/* Tabela de Filiados */}
+      {/* Tabela de Base de Dados */}
       <div className="card">
         <div className="card-content">
           <div className="overflow-x-auto">

@@ -1,7 +1,7 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.5.0';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema web moderno para entidades sindicais gerenciarem informações dos empregados filiados';
 export const LAST_UPDATE = '2025-01-15';
@@ -13,10 +13,25 @@ export const VERSION_FEATURES = [
   'Destaque para aniversariantes do dia',
   'Tópico Motivo de Afastamento com dados estatísticos',
   'Interface responsiva e moderna',
-  'Paleta de cores UniSafe harmoniosa'
+  'Paleta de cores UniSafe harmoniosa',
+  'Sistema de Administração completo',
+  'Menu de Administração do Sistema',
+  'Reorganização dos menus principais'
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.5.0',
+    date: 'Janeiro 2025',
+    features: [
+      'Menu de Administração do Sistema',
+      'Reorganização dos menus principais (Dashboard → Upload → Filiados)',
+      'Página de Administração completa',
+      'Implementação da paleta de cores UniSafe',
+      'Sistema de cores interativo para links e títulos',
+      'Interface administrativa responsiva e moderna'
+    ]
+  },
   {
     version: '1.4.0',
     date: 'Janeiro 2025',

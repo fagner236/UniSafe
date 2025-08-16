@@ -10,23 +10,41 @@ import authRoutes from './routes/auth';
 import employeeRoutes from './routes/employees';
 import uploadRoutes from './routes/upload';
 import dashboardRoutes from './routes/dashboard';
-import companyRoutes from './routes/companies';
+import companyRoutes from './routes/companies-new';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
+import { securityHeaders, sanitizeInput } from './middleware/securityHeaders';
+import { generalRateLimit } from './middleware/security';
+import { securityConfig, validateSecurityConfig } from './config/security';
 
 // Load environment variables
 dotenv.config();
 
+// Validar configuração de segurança antes de iniciar
+try {
+  validateSecurityConfig();
+  console.log('✅ Configuração de segurança validada com sucesso');
+} catch (error) {
+  console.error('❌ Erro na configuração de segurança:', (error as Error).message);
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware de segurança
 app.use(helmet());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  credentials: true
-}));
+app.use(securityHeaders);
+app.use(sanitizeInput);
+
+// Rate limiting geral
+app.use(generalRateLimit);
+
+// CORS configurado
+app.use(cors(securityConfig.cors));
+
+// Logging
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));

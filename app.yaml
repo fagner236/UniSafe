@@ -1,0 +1,20 @@
+runtime: nodejs20
+service: unisafe
+
+env_variables:
+  NODE_ENV: production
+  PORT: 8080
+  APP_URL: 'http://unisafe.evia.com.br'
+  ENVIRONMENT: 'False'
+  TZ: America/Sao_Paulo
+
+instance_class: F1  # classe de instância mais econômica
+
+handlers:
+  - url: /
+    static_files: dist/index.html
+    upload: dist/index.html
+
+  - url: /(.*)
+    static_files: dist/\1
+    upload: dist/(.*)

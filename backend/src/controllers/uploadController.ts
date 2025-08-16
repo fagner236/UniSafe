@@ -72,7 +72,7 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
     // Processar arquivo em background
     processFileAsync(uploadRecord.id, filePath);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Arquivo enviado com sucesso',
       data: {
@@ -85,7 +85,7 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Erro no upload:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });

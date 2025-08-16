@@ -3,18 +3,17 @@ import {
   Home, 
   Users, 
   Upload, 
-  BarChart3, 
   Menu,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 import { useState } from 'react';
 import { getVersionString } from '../config/version';
 
 const navigation = [
-  { name: 'Upload', href: '/upload', icon: Upload },
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Filiados', href: '/employees', icon: Users },
-  { name: 'Relatórios', href: '/reports', icon: BarChart3 },
+  { name: 'Upload', href: '/upload', icon: Upload },
+  { name: 'Base de Dados', href: '/employees', icon: Users },
 ];
 
 const Sidebar = () => {
@@ -68,6 +67,34 @@ const Sidebar = () => {
                 </NavLink>
               ))}
             </nav>
+            
+            {/* Menu de Administração do Sistema - Posição Intermediária */}
+            <div className="px-2 py-4 border-t border-b" style={{ borderColor: '#c9504c' }}>
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    isActive ? 'shadow-md' : 'hover:shadow-sm'
+                  }`
+                }
+                style={({ isActive }) => ({
+                  backgroundColor: isActive ? '#ffc9c0' : 'transparent',
+                  color: isActive ? '#1d335b' : '#ffc9c0',
+                  borderLeft: isActive ? '4px solid #c9504c' : '4px solid transparent'
+                })}
+              >
+                {({ isActive }) => (
+                  <>
+                    <Settings 
+                      className="mr-3 h-4 w-4" 
+                      style={{ color: isActive ? '#1d335b' : '#ffc9c0' }} 
+                    />
+                    Sistema
+                  </>
+                )}
+              </NavLink>
+            </div>
+            
             {/* Footer com versão dinâmica */}
             <div className="px-4 py-3 border-t" style={{ borderColor: '#c9504c' }}>
               <p className="text-xs text-center" style={{ color: '#ffc9c0' }}>
@@ -114,6 +141,34 @@ const Sidebar = () => {
                 </NavLink>
               ))}
             </nav>
+            
+            {/* Menu de Administração do Sistema - Posição Intermediária */}
+            <div className="px-2 py-4 border-t border-b" style={{ borderColor: '#c9504c' }}>
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    isActive ? 'shadow-md' : 'hover:shadow-sm'
+                  }`
+                }
+                style={({ isActive }) => ({
+                  backgroundColor: isActive ? '#ffc9c0' : 'transparent',
+                  color: isActive ? '#1d335b' : '#ffc9c0',
+                  borderLeft: isActive ? '4px solid #c9504c' : '4px solid transparent'
+                })}
+              >
+                {({ isActive }) => (
+                  <>
+                    <Settings 
+                      className="mr-3 h-4 w-4" 
+                      style={{ color: isActive ? '#1d335b' : '#ffc9c0' }} 
+                    />
+                    Sistema
+                  </>
+                )}
+              </NavLink>
+            </div>
+            
             {/* Footer com versão dinâmica */}
             <div className="px-4 py-3 border-t" style={{ borderColor: '#c9504c' }}>
               <p className="text-xs text-center" style={{ color: '#ffc9c0' }}>

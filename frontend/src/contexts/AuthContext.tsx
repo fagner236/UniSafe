@@ -84,7 +84,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('Dados da resposta:', data);
 
       if (!response.ok) {
-        throw new Error(data.message || data.data?.message || 'Erro no login');
+        // Capturar a mensagem específica do backend
+        const errorMessage = data.message || 'Erro no login';
+        throw new Error(errorMessage);
       }
 
       setToken(data.data.token);
