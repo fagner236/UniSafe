@@ -121,6 +121,8 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+    
+    console.log('🔍 Tentativa de login:', { email, password: password ? '[SENHA_FORNECIDA]' : '[SEM_SENHA]' });
 
     // Validação de segurança
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'fallback-secret') {
@@ -128,19 +130,27 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Buscar usuário
+    console.log('🔍 Buscando usuário com email:', email);
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() }
     });
+    
+    console.log('🔍 Resultado da busca:', user ? 'Usuário encontrado' : 'Usuário não encontrado');
 
     if (!user) {
+      console.log('❌ Usuário não localizado para email:', email);
       return res.status(401).json({
         success: false,
         message: 'Usuário não localizado!'
       });
     }
 
+    console.log('✅ Usuário encontrado:', { id: user.id_usuario, nome: user.nome, email: user.email });
+
     // Verificar senha
+    console.log('🔍 Verificando senha...');
     const isValidPassword = await bcrypt.compare(password, user.senha);
+    console.log('🔍 Senha válida:', isValidPassword);
 
     if (!isValidPassword) {
       // Log de tentativa de login falhada

@@ -1,3 +1,4 @@
+// Configuração de segurança do sistema
 export const securityConfig = {
   // JWT
   jwt: {
@@ -12,19 +13,17 @@ export const securityConfig = {
     rounds: parseInt(process.env.BCRYPT_ROUNDS || '12')
   },
 
-  // Rate Limiting
-  rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 min
-    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
-    authMaxAttempts: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '5')
-  },
+  // Rate Limiting - DESABILITADO TEMPORARIAMENTE PARA DESENVOLVIMENTO
+  // windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 min
+  // maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+  // authMaxAttempts: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '5')
 
   // CORS
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
   },
 
   // File Upload

@@ -15,7 +15,7 @@ import companyRoutes from './routes/companies-new';
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { securityHeaders, sanitizeInput } from './middleware/securityHeaders';
-import { generalRateLimit } from './middleware/security';
+// import { generalRateLimit } from './middleware/security';
 import { securityConfig, validateSecurityConfig } from './config/security';
 
 // Load environment variables
@@ -38,8 +38,8 @@ app.use(helmet());
 app.use(securityHeaders);
 app.use(sanitizeInput);
 
-// Rate limiting geral
-app.use(generalRateLimit);
+// Rate limiting geral - DESABILITADO TEMPORARIAMENTE
+// app.use(generalRateLimit);
 
 // CORS configurado
 app.use(cors(securityConfig.cors));
