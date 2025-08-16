@@ -49,14 +49,14 @@ router.post('/', validateCompanyData, async (req: Request, res: Response) => {
     console.log('🏢 Empresa criada:', newCompany);
     console.log('🆔 ID da empresa:', newCompany.id_empresa);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Empresa cadastrada com sucesso',
       data: newCompany
     });
   } catch (error) {
     console.error('Erro ao cadastrar empresa:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });
@@ -109,18 +109,18 @@ router.put('/:id', auth, validateCompanyData, async (req: Request, res: Response
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Empresa atualizada com sucesso',
       data: updatedCompany
     });
-  } catch (error) {
-    console.error('Erro ao atualizar empresa:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor'
-    });
-  }
+      } catch (error) {
+      console.error('Erro ao atualizar empresa:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Erro interno do servidor'
+      });
+    }
 });
 
 // Rota de verificação de CNPJ
@@ -155,7 +155,7 @@ router.get('/check-cnpj/:cnpj', async (req: Request, res: Response) => {
     if (company) {
       // CNPJ existe - retornar dados da empresa
       console.log('✅ Retornando dados da empresa existente');
-      res.json({
+      return res.json({
         success: true,
         exists: true,
         message: 'CNPJ já cadastrado no sistema',
@@ -174,7 +174,7 @@ router.get('/check-cnpj/:cnpj', async (req: Request, res: Response) => {
     } else {
       // CNPJ não existe
       console.log('✅ Retornando CNPJ disponível');
-      res.json({
+      return res.json({
         success: true,
         exists: false,
         message: 'CNPJ disponível para cadastro',
@@ -183,7 +183,7 @@ router.get('/check-cnpj/:cnpj', async (req: Request, res: Response) => {
     }
   } catch (error) {
     console.error('❌ Erro ao verificar CNPJ:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });
@@ -214,13 +214,13 @@ router.get('/', auth, async (req: Request, res: Response) => {
       userCount: 0 // Valor padrão, pode ser implementado depois
     }));
 
-    res.json({
+    return res.json({
       success: true,
       data: companiesWithData
     });
   } catch (error) {
     console.error('Erro ao buscar empresas:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });
@@ -255,13 +255,13 @@ router.get('/:id', auth, async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: company
     });
   } catch (error) {
     console.error('Erro ao buscar empresa:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });

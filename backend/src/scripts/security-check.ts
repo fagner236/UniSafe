@@ -89,7 +89,7 @@ async function runSecurityChecks(): Promise<SecurityCheck[]> {
 
     // Verificar se há usuários com senhas fracas
     const users = await prisma.user.findMany({
-      select: { id: true, email: true, password: true }
+      select: { id_usuario: true, email: true, senha: true }
     });
 
     if (users.length === 0) {

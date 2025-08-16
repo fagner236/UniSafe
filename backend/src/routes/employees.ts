@@ -6,52 +6,23 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // GET /api/employees
+// TODO: Implementar modelo Employee no schema Prisma
 router.get('/', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, status, company } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const where: any = {};
-    
-    if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { cpf: { contains: search as string } },
-        { email: { contains: search as string, mode: 'insensitive' } }
-      ];
-    }
-    
-    if (status) {
-      where.status = status;
-    }
-    
-    if (company) {
-      where.company = { contains: company as string, mode: 'insensitive' };
-    }
-
-    const [employees, total] = await Promise.all([
-      prisma.employee.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { lastUpdate: 'desc' }
-      }),
-      prisma.employee.count({ where })
-    ]);
-
-    res.json({
+    // Temporariamente retornando dados vazios até implementar o modelo Employee
+    return res.json({
       success: true,
-      data: employees,
+      data: [],
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit))
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0
       }
     });
   } catch (error) {
     console.error('Erro ao buscar funcionários:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'
     });

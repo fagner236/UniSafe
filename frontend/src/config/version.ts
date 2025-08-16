@@ -1,25 +1,35 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.6.0';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema web moderno para entidades sindicais gerenciarem informações dos empregados filiados';
 export const LAST_UPDATE = '2025-01-15';
 
 export const VERSION_FEATURES = [
-  'Dashboard completo com visualizações de dados',
-  'Tabela de aniversariantes da semana com navegação',
-  'Sistema de rolagem personalizado',
-  'Destaque para aniversariantes do dia',
-  'Tópico Motivo de Afastamento com dados estatísticos',
-  'Interface responsiva e moderna',
-  'Paleta de cores UniSafe harmoniosa',
-  'Sistema de Administração completo',
-  'Menu de Administração do Sistema',
-  'Reorganização dos menus principais'
+  'Sistema de verificação de CNPJ em tempo real',
+  'Interface administrativa completa',
+  'Dashboard aprimorado com novas estatísticas',
+  'Validação avançada de dados brasileiros',
+  'Paleta de cores UniSafe implementada',
+  'Sistema de administração completo',
+  'Verificação automática de CNPJ duplicado',
+  'Interface responsiva e moderna'
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.6.0',
+    date: 'Janeiro 2025',
+    features: [
+      'Sistema de verificação de CNPJ em tempo real',
+      'Interface administrativa completa e funcional',
+      'Dashboard aprimorado com novas estatísticas',
+      'Validação avançada de dados brasileiros',
+      'Paleta de cores UniSafe implementada',
+      'Sistema de administração completo'
+    ]
+  },
   {
     version: '1.5.0',
     date: 'Janeiro 2025',

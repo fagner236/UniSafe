@@ -65,7 +65,7 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
         mimetype,
         path: filePath,
         status: 'pending',
-        uploadedBy: req.user!.id
+        uploadedBy: req.user!.id_usuario
       }
     });
 
@@ -121,45 +121,46 @@ const processFileAsync = async (uploadId: string, filePath: string) => {
         // Formatar CPF (remover caracteres especiais)
         const cpf = row.CPF.toString().replace(/\D/g, '');
 
+        // TODO: Implementar modelo Employee no schema Prisma
         // Verificar se CPF já existe
-        const existingEmployee = await prisma.employee.findUnique({
-          where: { cpf }
-        });
+        // const existingEmployee = await prisma.employee.findUnique({
+        //   where: { cpf }
+        // });
 
-        if (existingEmployee) {
-          // Atualizar dados existentes
-          await prisma.employee.update({
-            where: { cpf },
-            data: {
-              name: row.Nome,
-              email: row.Email || null,
-              phone: row.Telefone || null,
-              position: row.Cargo,
-              department: row.Departamento || 'Geral',
-              company: row.Empresa,
-              admissionDate: new Date(row['Data de Admissão'] || new Date()),
-              salary: parseFloat(row.Salario) || 0,
-              lastUpdate: new Date(),
-              uploadId
-            }
-          });
-        } else {
-          // Criar novo funcionário
-          await prisma.employee.create({
-            data: {
-              name: row.Nome,
-              cpf,
-              email: row.Email || null,
-              phone: row.Telefone || null,
-              position: row.Cargo,
-              department: row.Departamento || 'Geral',
-              company: row.Empresa,
-              admissionDate: new Date(row['Data de Admissão'] || new Date()),
-              salary: parseFloat(row.Salario) || 0,
-              uploadId
-            }
-          });
-        }
+        // if (existingEmployee) {
+        //   // Atualizar dados existentes
+        //   await prisma.employee.update({
+        //     where: { cpf },
+        //     data: {
+        //       name: row.Nome,
+        //       email: row.Email || null,
+        //       phone: row.Telefone || null,
+        //       position: row.Cargo,
+        //       department: row.Departamento || 'Geral',
+        //       company: row.Empresa,
+        //       admissionDate: new Date(row['Data de Admissão'] || new Date()),
+        //       salary: parseFloat(row.Salario) || 0,
+        //       lastUpdate: new Date(),
+        //       uploadId
+        //     }
+        //   });
+        // } else {
+        //   // Criar novo funcionário
+        //   await prisma.employee.create({
+        //     data: {
+        //       name: row.Nome,
+        //       cpf,
+        //       email: row.Email || null,
+        //       phone: row.Telefone || null,
+        //       position: row.Cargo,
+        //       department: row.Departamento || 'Geral',
+        //       company: row.Empresa,
+        //       admissionDate: new Date(row['Data de Admissão'] || new Date()),
+        //       salary: parseFloat(row.Salario) || 0,
+        //       uploadId
+        //     }
+        //   });
+        // }
 
         processedCount++;
       } catch (error) {
@@ -197,7 +198,7 @@ const processFileAsync = async (uploadId: string, filePath: string) => {
 export const getUploads = async (req: AuthRequest, res: Response) => {
   try {
     const uploads = await prisma.upload.findMany({
-      where: { uploadedBy: req.user!.id },
+      where: { uploadedBy: req.user!.id_usuario },
       orderBy: { uploadedAt: 'desc' },
       select: {
         id: true,

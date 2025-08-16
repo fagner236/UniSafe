@@ -13,10 +13,10 @@ async function checkUser() {
     if (user) {
       console.log('✅ Usuário encontrado:');
       console.log('📧 Email:', user.email);
-      console.log('👤 Nome:', user.name);
-      console.log('🔐 Role:', user.role);
-      console.log('🆔 ID:', user.id);
-      console.log('📅 Criado em:', user.createdAt);
+      console.log('👤 Nome:', user.nome);
+      console.log('🔐 Role:', user.perfil);
+      console.log('🆔 ID:', user.id_usuario);
+      console.log('📅 Criado em:', user.data_criacao);
     } else {
       console.log('❌ Usuário não encontrado');
     }
@@ -25,7 +25,7 @@ async function checkUser() {
     const allUsers = await prisma.user.findMany();
     console.log('\n📋 Todos os usuários no banco:');
     allUsers.forEach((u, index) => {
-      console.log(`${index + 1}. ${u.email} (${u.name}) - ${u.role}`);
+      console.log(`${index + 1}. ${u.email} (${u.nome}) - ${u.perfil}`);
     });
 
   } catch (error) {

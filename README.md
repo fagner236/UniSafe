@@ -86,16 +86,19 @@ Após executar o seed do banco de dados, você pode acessar o sistema com as seg
 
 ## 🔧 Versões e Changelog
 
-### 📊 **Versão Atual: v1.3.0** *(Janeiro 2025)*
-- ✨ **Interatividade aprimorada** no tópico "Jornadas de Trabalho"
-- ✨ **Efeitos de hover na legenda** com feedback visual rico
-- ✨ **Interação cruzada** entre legenda e gráfico
-- ✨ **Gráfico de pizza limpo** e profissional
-- ✨ **Formatação de números** com separadores de milhar
-- ✨ **Interface responsiva** e otimizada
+### 📊 **Versão Atual: v1.6.0** *(Janeiro 2025)*
+- ✨ **Sistema de verificação de CNPJ** em tempo real
+- ✨ **Interface administrativa completa** com gestão avançada
+- ✨ **Dashboard aprimorado** com novas estatísticas
+- ✨ **Validação avançada de dados** com algoritmo brasileiro
+- ✨ **Paleta de cores UniSafe** implementada em todo o sistema
+- ✨ **Interface responsiva** e moderna
 
 ### 📈 **Histórico de Versões**
-- **v1.3.0** (Janeiro 2025): Interatividade e refinamentos do Dashboard
+- **v1.6.0** (Janeiro 2025): Sistema de verificação CNPJ e administração completa
+- **v1.5.0** (Janeiro 2025): Interface administrativa e reorganização de menus
+- **v1.4.0** (Dezembro 2024): Sistema de motivos de afastamento
+- **v1.3.0** (Dezembro 2024): Interatividade e refinamentos do Dashboard
 - **v1.2.0** (Dezembro 2024): Tabela de aniversariantes da semana
 - **v1.1.0** (Agosto 2025): Correções de layout e otimizações
 - **v1.0.0** (Agosto 2025): Dashboard completo com visualizações

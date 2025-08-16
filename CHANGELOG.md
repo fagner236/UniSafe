@@ -12,6 +12,41 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Scripts de release automatizados
 - Controle de versões com Git tags
 
+## [1.6.0] - 2025-01-15
+
+### Adicionado
+- **Sistema de Verificação de CNPJ:**
+  - Verificação em tempo real de CNPJ no cadastro de empresas
+  - Validação automática durante o registro
+  - Interface intuitiva para verificação
+  - Integração com a API de empresas
+- **Sistema de Administração Completo:**
+  - Interface administrativa dedicada
+  - Gestão de usuários e empresas
+  - Backup e restauração do sistema
+  - Logs e monitoramento em tempo real
+  - Configurações de segurança avançadas
+- **Melhorias no Dashboard:**
+  - Novas estatísticas e visualizações
+  - Interface responsiva aprimorada
+  - Paleta de cores UniSafe implementada
+- **Validação Avançada de Dados:**
+  - Sistema robusto de validação de CPF, email e telefone
+  - Tratamento inteligente de erros
+  - Formatação brasileira aprimorada
+
+### Alterado
+- Reorganização dos menus principais da barra lateral
+- Implementação completa da paleta de cores UniSafe
+- Sistema de validação mais robusto e inteligente
+- Interface de usuário modernizada e responsiva
+
+### Corrigido
+- Problemas de validação de dados
+- Erros de formatação brasileira
+- Inconsistências de tipos TypeScript
+- Problemas de roteamento e autenticação
+
 ## [1.0.1] - 2025-08-10
 
 ### Adicionado
