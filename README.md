@@ -86,7 +86,7 @@ Após executar o seed do banco de dados, você pode acessar o sistema com as seg
 
 ## 🔧 Versões e Changelog
 
-### 📊 **Versão Atual: v1.6.0** *(Janeiro 2025)*
+### 📊 **Versão Atual: v1.6.2** *(Agosto 2025)*
 - ✨ **Sistema de verificação de CNPJ** em tempo real
 - ✨ **Interface administrativa completa** com gestão avançada
 - ✨ **Dashboard aprimorado** com novas estatísticas
@@ -95,6 +95,7 @@ Após executar o seed do banco de dados, você pode acessar o sistema com as seg
 - ✨ **Interface responsiva** e moderna
 
 ### 📈 **Histórico de Versões**
+- **v1.6.2** (Agosto 2025): Atualizações de dependências e melhorias no sistema
 - **v1.6.0** (Janeiro 2025): Sistema de verificação CNPJ e administração completa
 - **v1.5.0** (Janeiro 2025): Interface administrativa e reorganização de menus
 - **v1.4.0** (Dezembro 2024): Sistema de motivos de afastamento

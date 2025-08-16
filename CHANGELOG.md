@@ -8,7 +8,50 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 ## [1.6.2] - 2025-08-16
 
 ### Adicionado
-- Atualização de dependências e melhorias no sistema
+- **Atualizações de Dependências:**
+  - React atualizado para versão 18.3.0
+  - Express atualizado para versão 5.1.0
+  - Prisma atualizado para versão 6.14.0
+  - TypeScript atualizado para versão 5.9.2
+  - Vite atualizado para versão 5.4.19
+  - Tailwind CSS atualizado para versão 3.4.17
+- **Melhorias no Sistema de Verificação de CNPJ:**
+  - Logs detalhados para debugging
+  - Validação aprimorada de dados
+  - Tratamento de erros mais robusto
+- **Sistema de Versionamento:**
+  - Scripts de versionamento corrigidos
+  - Controle automático de versões
+  - Documentação atualizada automaticamente
+
+### Alterado
+- **Configurações de Segurança:**
+  - Rate limiting temporariamente desabilitado para desenvolvimento
+  - Headers de segurança atualizados (Helmet 8.1.0)
+  - Configurações de CORS aprimoradas
+- **Estrutura do Projeto:**
+  - Migrações do Prisma atualizadas
+  - Configurações de build otimizadas
+  - Scripts de deploy melhorados
+
+### Corrigido
+- **Scripts de Versionamento:**
+  - Problemas com caracteres especiais no sed
+  - Validação de arquivos de documentação
+  - Tratamento de erros no processo de versionamento
+- **Dependências:**
+  - Conflitos de versão resolvidos
+  - Vulnerabilidades de segurança atualizadas
+  - Compatibilidade entre pacotes melhorada
+
+### Documentação
+- **Novos Arquivos:**
+  - ATUALIZACAO_REACT_EXPRESS.md: Detalhes das atualizações
+  - DIAGNOSTICO_SISTEMA.md: Status e diagnóstico do sistema
+  - RATE_LIMITING_DESABILITADO.md: Explicação das configurações
+- **Arquivos Atualizados:**
+  - CHANGELOG.md: Histórico completo de versões
+  - CHECKPOINT_ESTADO_ATUAL.md: Status atual do sistema
 
 ## [Unreleased]
 
