@@ -61,11 +61,18 @@ export interface Department {
 }
 
 export interface User {
-  id: string;
-  name: string;
+  id_usuario: string;
+  nome: string;
   email: string;
-  role: 'admin' | 'user';
-  createdAt: string;
+  perfil: 'admin' | 'user' | 'ghost';
+  data_criacao: string;
+  data_atualizacao?: string;
+  id_empresa?: string;
+  empresa?: {
+    nome_fantasia: string | null;
+    razao_social: string;
+    cnpj: string;
+  } | null;
 }
 
 export interface LoginCredentials {

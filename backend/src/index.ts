@@ -10,7 +10,10 @@ import authRoutes from './routes/auth';
 import employeeRoutes from './routes/employees';
 import uploadRoutes from './routes/upload';
 import dashboardRoutes from './routes/dashboard';
-import companyRoutes from './routes/companies-new';
+import companyRoutes from './routes/companies';
+import userRoutes from './routes/users';
+import adminRoutes from './routes/admin';
+import logsRoutes from './routes/logs';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -67,6 +70,9 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/companies', companyRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/admin/logs', logsRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

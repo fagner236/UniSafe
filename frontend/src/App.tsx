@@ -9,7 +9,10 @@ import Dashboard from '@/pages/Dashboard';
 import Employees from '@/pages/Employees';
 import Upload from '@/pages/Upload';
 import Admin from '@/pages/Admin';
+import SystemLogs from '@/pages/SystemLogs';
+import UserManagement from '@/pages/UserManagement';
 import Profile from '@/pages/Profile';
+import Settings from '@/pages/Settings';
 import CNPJTestPage from '@/pages/CNPJTestPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
@@ -27,7 +30,10 @@ function App() {
             <Route path="employees" element={<Employees />} />
             <Route path="upload" element={<Upload />} />
             <Route path="admin" element={<Admin />} />
+            <Route path="admin/logs" element={<SystemLogs />} />
+            <Route path="admin/users" element={<UserManagement />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
       </DataProvider>

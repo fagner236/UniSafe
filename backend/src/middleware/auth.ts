@@ -9,14 +9,26 @@ export interface AuthRequest extends Request {
     id_usuario: string;
     email: string;
     perfil: string;
+    id_empresa?: string;
+    empresa?: {
+      id_empresa: string;
+      razao_social: string;
+      nome_fantasia?: string;
+      cnpj: string;
+    };
   };
 }
 
 export const auth = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    console.log('🔐 === MIDDLEWARE DE AUTENTICAÇÃO CHAMADO ===');
+    console.log('🔐 Headers recebidos:', req.headers);
+    
     const token = req.header('Authorization')?.replace('Bearer ', '');
+    console.log('🔐 Token extraído:', token ? token.substring(0, 20) + '...' : 'Nenhum');
 
     if (!token) {
+      console.log('❌ Token não fornecido');
       return res.status(401).json({
         success: false,
         message: 'Token de acesso não fornecido'
@@ -36,16 +48,35 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction) 
         id_usuario: true,
         email: true,
         perfil: true,
-        nome: true
+        nome: true,
+        id_empresa: true,
+        empresa: {
+          select: {
+            id_empresa: true,
+            razao_social: true,
+            nome_fantasia: true,
+            cnpj: true
+          }
+        }
       }
     });
 
+    console.log('🔐 Usuário encontrado no banco:', user);
+
     if (!user) {
+      console.log('❌ Usuário não encontrado no banco');
       return res.status(401).json({
         success: false,
         message: 'Usuário não encontrado'
       });
     }
+
+    console.log('✅ Usuário autenticado com sucesso:', {
+      id: user.id_usuario,
+      email: user.email,
+      perfil: user.perfil,
+      id_empresa: user.id_empresa
+    });
 
     req.user = user;
     return next();

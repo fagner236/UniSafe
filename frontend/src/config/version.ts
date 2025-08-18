@@ -1,23 +1,36 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.6.2';
+export const APP_VERSION = '1.7.1';
 export const APP_NAME = 'UniSafe';
-export const APP_DESCRIPTION = 'Sistema web moderno para entidades sindicais gerenciarem informações dos empregados filiados';
-export const LAST_UPDATE = '2025-08-16';
+export const APP_DESCRIPTION = 'Sistema de Gestão de Funcionários e Empresas';
+export const APP_AUTHOR = 'Evia - Via Eletrônica Ltda.';
+export const APP_WEBSITE = 'https://evia.com.br';
 
 export const VERSION_FEATURES = [
-  'Atualizações de dependências (React 18.3.0, Express 5.1.0, Prisma 6.14.0)',
-  'Sistema de versionamento corrigido e automatizado',
-  'Melhorias no sistema de verificação de CNPJ',
-  'Configurações de segurança atualizadas',
-  'Documentação completa e atualizada',
-  'Scripts de versionamento funcionando perfeitamente',
-  'Interface responsiva e moderna',
-  'Sistema estável e otimizado'
+  'Sistema de controle de acesso por empresa',
+  'Menu Sistema condicional apenas para empresa dona',
+  'Unificação da paleta de cores (#c9504c)',
+  'Correção de problemas de codificação de caracteres',
+  'Interface adaptativa por perfil de empresa',
+  'Limpeza de 26 arquivos não utilizados',
+  'Melhorias na segurança e sanitização',
+  'Sistema robusto e visualmente consistente'
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.7.0',
+    date: 'Agosto 2025',
+    features: [
+      'Sistema de controle de acesso por empresa',
+      'Menu Sistema condicional apenas para empresa dona',
+      'Unificação da paleta de cores (#c9504c)',
+      'Correção de problemas de codificação de caracteres',
+      'Interface adaptativa por perfil de empresa',
+      'Limpeza de 26 arquivos não utilizados'
+    ]
+  },
   {
     version: '1.6.2',
     date: 'Agosto 2025',
@@ -113,8 +126,15 @@ export const VERSION_INFO = {
   version: APP_VERSION,
   name: APP_NAME,
   description: APP_DESCRIPTION,
-  buildDate: new Date().toISOString(),
-  environment: 'development' // Ambiente fixo para frontend
+  author: APP_AUTHOR,
+  website: APP_WEBSITE,
+  releaseDate: '2025-08-18',
+  changes: [
+    'Separação de responsabilidades entre Configurações e Gestão de Usuários',
+    'Controle de acesso corrigido para Admins',
+    'Segurança mantida com auditoria completa',
+    'Interface adaptativa baseada no tipo de acesso'
+  ]
 };
 
 // Função para obter a versão formatada

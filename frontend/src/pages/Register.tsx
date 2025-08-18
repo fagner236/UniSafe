@@ -74,7 +74,7 @@ const Register = () => {
       const cleanCNPJ = cnpj.replace(/\D/g, '');
       console.log('🔍 Verificando CNPJ:', cleanCNPJ);
       
-      const response = await api.get(`/api/companies/check-cnpj/${cleanCNPJ}`);
+      const response = await api.get(`/api/companies/check-cnpj?cnpj=${cleanCNPJ}`);
       console.log('📡 Resposta da verificação:', response.data);
       
       if (response.data.success) {
@@ -94,13 +94,13 @@ const Register = () => {
             estado: empresaEncontrada.estado
           });
           
-          setCnpjMessage(`✅ CNPJ já cadastrado! Empresa: ${empresaEncontrada.razao_social} (${empresaEncontrada.nome_fantasia || 'Sem nome fantasia'})`);
+          setCnpjMessage(`✅ Empresa já faz parte da nossa base de dados - faça seu cadastro como usuário!`);
           
           // Aguardar um pouco para mostrar a mensagem e depois ir para aba de usuário
           setTimeout(() => {
             setActiveTab('user');
-            setSuccess(`Empresa "${empresaEncontrada.razao_social}" encontrada! Agora cadastre o usuário administrador.`);
-          }, 3000);
+            setSuccess(`Empresa "${empresaEncontrada.razao_social}" encontrada! Cadastre-se!`);
+          }, 2000);
         } else {
           // CNPJ não existe - permitir cadastro
           setCnpjExists(false);

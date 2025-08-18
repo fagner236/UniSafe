@@ -1,5 +1,6 @@
 import React from 'react';
 import { Building2, Upload, BarChart3 } from 'lucide-react';
+import { getVersionString } from '../config/version';
 
 const LoginSidebar = () => {
   // Preload da imagem para evitar piscar
@@ -52,6 +53,16 @@ const LoginSidebar = () => {
               <p className="text-gray-600 text-sm">Visualize estatísticas e gere relatórios</p>
             </div>
           </div>
+        </div>
+        
+        {/* Versão do Sistema e Copyright */}
+        <div className="mt-8 pt-6 border-t border-gray-200 animate-fade-in" style={{ animationDelay: '0.8s' }}>
+          <p className="text-xs text-gray-500 tracking-wide mb-2">
+            Versão {getVersionString()}
+          </p>
+          <p className="text-xs text-gray-400 tracking-wide">
+            © 2025 Via Eletrônica Ltda. Todos os direitos reservados.
+          </p>
         </div>
       </div>
     </div>

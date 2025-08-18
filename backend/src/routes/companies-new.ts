@@ -27,10 +27,10 @@ router.get('/test-param/:id', (req: Request, res: Response) => {
   res.json({ message: 'Rota de teste com parâmetro funcionando', id: req.params.id });
 });
 
-// Rota de teste com nome diferente
+// Rota de verificação de CNPJ
 console.log('📝 Registrando rota: GET /verify-cnpj/:cnpj');
 router.get('/verify-cnpj/:cnpj', async (req: Request, res: Response) => {
-  console.log('🔍 Rota de verificação de CNPJ (nome diferente):', req.params.cnpj);
+  console.log('🔍 Rota de verificação de CNPJ:', req.params.cnpj);
   
   try {
     const { cnpj } = req.params;
@@ -77,7 +77,7 @@ router.get('/verify-cnpj/:cnpj', async (req: Request, res: Response) => {
   }
 });
 
-// Rota de teste com nome completamente diferente
+// Rota de busca de empresa
 console.log('📝 Registrando rota: GET /search-company/:cnpj');
 router.get('/search-company/:cnpj', async (req: Request, res: Response) => {
   console.log('🔍 Rota de busca de empresa:', req.params.cnpj);
@@ -141,9 +141,10 @@ router.get('/test-simple/:id', (req: Request, res: Response) => {
   res.json({ message: 'Rota com parâmetro simples funcionando', id: req.params.id });
 });
 
-// Rota de verificação de CNPJ
+// Rota de verificação de CNPJ (alternativa)
+console.log('📝 Registrando rota: GET /check-cnpj/:cnpj');
 router.get('/check-cnpj/:cnpj', async (req: Request, res: Response) => {
-  console.log('🔍 Rota de verificação de CNPJ chamada (novo arquivo):', req.params.cnpj);
+  console.log('🔍 Rota de verificação de CNPJ chamada:', req.params.cnpj);
   
   try {
     const { cnpj } = req.params;
@@ -190,10 +191,10 @@ router.get('/check-cnpj/:cnpj', async (req: Request, res: Response) => {
   }
 });
 
-// Rota de teste com nome completamente diferente
+// Rota de busca de empresa (alternativa)
 console.log('📝 Registrando rota: GET /find-company/:cnpj');
 router.get('/find-company/:cnpj', async (req: Request, res: Response) => {
-  console.log('🔍 Rota de busca de empresa (nome diferente):', req.params.cnpj);
+  console.log('🔍 Rota de busca de empresa (alternativa):', req.params.cnpj);
   
   try {
     const { cnpj } = req.params;
@@ -240,57 +241,6 @@ router.get('/find-company/:cnpj', async (req: Request, res: Response) => {
   }
 });
 
-// Rota de teste com parâmetro mais simples
-console.log('📝 Registrando rota: GET /test-param/:cnpj');
-router.get('/test-param/:cnpj', (req: Request, res: Response) => {
-  console.log('✅ Rota de teste com parâmetro funcionando:', req.params.cnpj);
-  res.json({ message: 'Rota de teste com parâmetro funcionando', cnpj: req.params.cnpj });
-});
-
-// Rota de teste com parâmetro mais simples
-console.log('📝 Registrando rota: GET /test-param/:cnpj');
-router.get('/test-param/:cnpj', (req: Request, res: Response) => {
-  console.log('✅ Rota de teste com parâmetro funcionando:', req.params.cnpj);
-  res.json({ message: 'Rota de teste com parâmetro funcionando', cnpj: req.params.cnpj });
-});
-
-// Rota de teste com parâmetro mais simples
-console.log('📝 Registrando rota: GET /test-param/:cnpj');
-router.get('/test-param/:cnpj', (req: Request, res: Response) => {
-  console.log('✅ Rota de teste com parâmetro funcionando:', req.params.cnpj);
-  res.json({ message: 'Rota de teste com parâmetro funcionando', cnpj: req.params.cnpj });
-});
-
-// Rota de teste com parâmetro mais simples
-console.log('📝 Registrando rota: GET /test-param/:cnpj');
-router.get('/test-param/:cnpj', (req: Request, res: Response) => {
-  console.log('✅ Rota de teste com parâmetro funcionando:', req.params.cnpj);
-  res.json({ message: 'Rota de teste com parâmetro funcionando', cnpj: req.params.cnpj });
-});
-
-// Rota de teste com parâmetro mais simples
-console.log('📝 Registrando rota: GET /test-param/:cnpj');
-router.get('/test-param/:cnpj', (req: Request, res: Response) => {
-  console.log('✅ Rota de teste com parâmetro funcionando:', req.params.cnpj);
-  res.json({ message: 'Rota de teste com parâmetro funcionando', cnpj: req.params.cnpj });
-});
-
-// Rota de teste com parâmetro mais simples
-console.log('📝 Registrando rota: GET /test-param/:cnpj');
-router.get('/test-param/:cnpj', (req: Request, res: Response) => {
-  console.log('✅ Rota de teste com parâmetro funcionando:', req.params.cnpj);
-  res.json({ message: 'Rota de teste com parâmetro funcionando', cnpj: req.params.cnpj });
-});
-
 console.log('✅ Todas as rotas específicas foram registradas');
-
-// Rota genérica (DEVE VIR POR ÚLTIMO)
-console.log('📝 Registrando rota genérica: GET /:id');
-router.get('/:id', (req: Request, res: Response) => {
-  console.log('✅ Rota genérica capturada:', req.params.id);
-  res.json({ message: 'Rota genérica funcionando', id: req.params.id });
-});
-
-console.log('✅ Todas as rotas do arquivo novo foram registradas');
 
 export default router;

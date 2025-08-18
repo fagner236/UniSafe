@@ -13,7 +13,17 @@ const api = axios.create({
 // Interceptor para requisições
 api.interceptors.request.use(
   (config) => {
+    // Adicionar token de autenticação se existir
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 Token incluído na requisição:', token.substring(0, 20) + '...');
+    } else {
+      console.log('⚠️ Nenhum token encontrado no localStorage');
+    }
+    
     console.log('🚀 Requisição sendo enviada:', config.method?.toUpperCase(), config.url);
+    console.log('🔑 Headers da requisição:', config.headers);
     return config;
   },
   (error) => {

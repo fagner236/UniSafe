@@ -150,7 +150,7 @@ const Login = () => {
       case 'error':
         return <AlertCircle className="h-4 w-4 text-red-500" />;
       case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-[#c9504c]" />;
       default:
         return null;
     }
@@ -164,9 +164,9 @@ const Login = () => {
       case 'error':
         return `${baseStyles} border-red-300 focus:ring-red-500 focus:border-red-500`;
       case 'success':
-        return `${baseStyles} border-green-300 focus:ring-green-500 focus:border-green-500`;
+        return `${baseStyles} border-[#c9504c] focus:ring-[#c9504c] focus:border-[#c9504c]`;
       default:
-        return `${baseStyles} border-gray-300 focus:ring-[#2f4a8c] focus:border-[#2f4a8c] hover:border-[#1d335b]`;
+        return `${baseStyles} border-gray-300 focus:ring-[#c9504c] focus:border-[#c9504c] hover:border-[#1d335b]`;
     }
   };
 
@@ -333,6 +333,8 @@ const Login = () => {
             </form>
           </div>
         </div>
+        
+
       </div>
     </div>
   );

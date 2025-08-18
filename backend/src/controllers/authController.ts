@@ -29,7 +29,7 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Se companyId for fornecido, verificar se a empresa existe
-    let perfil = 'user'; // Valor padrão
+    let perfil = 'ghost'; // Valor padrão
     
     if (companyId) {
       console.log('🏢 Verificando empresa com ID:', companyId);
@@ -53,7 +53,7 @@ export const register = async (req: Request, res: Response) => {
         where: { id_empresa: companyId }
       });
 
-      perfil = userCount === 0 ? 'admin' : 'user';
+      perfil = userCount === 0 ? 'admin' : 'ghost';
       console.log('👤 Perfil definido como:', perfil, '(usuários na empresa:', userCount, ')');
     } else {
       console.log('⚠️ Nenhum companyId fornecido');
@@ -168,6 +168,27 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '24h' }
     );
 
+    // Buscar informações da empresa se o usuário tiver uma empresa associada
+    let empresaInfo = null;
+    if (user.id_empresa) {
+      const empresa = await prisma.company.findUnique({
+        where: { id_empresa: user.id_empresa },
+        select: {
+          nome_fantasia: true,
+          razao_social: true,
+          cnpj: true
+        }
+      });
+      
+      if (empresa) {
+        empresaInfo = {
+          nome_fantasia: empresa.nome_fantasia,
+          razao_social: empresa.razao_social,
+          cnpj: empresa.cnpj
+        };
+      }
+    }
+
     // Log de auditoria de login bem-sucedido
     console.log(`[AUDIT] Login bem-sucedido: ${email} - ${new Date().toISOString()}`);
 
@@ -180,7 +201,8 @@ export const login = async (req: Request, res: Response) => {
           nome: user.nome,
           email: user.email,
           perfil: user.perfil,
-          data_criacao: user.data_criacao
+          data_criacao: user.data_criacao,
+          empresa: empresaInfo
         },
         token
       }
@@ -203,7 +225,8 @@ export const getProfile = async (req: any, res: Response) => {
         nome: true,
         email: true,
         perfil: true,
-        data_criacao: true
+        data_criacao: true,
+        id_empresa: true
       }
     });
 
@@ -214,9 +237,33 @@ export const getProfile = async (req: any, res: Response) => {
         });
     }
 
+    // Buscar informações da empresa se o usuário tiver uma empresa associada
+    let empresaInfo = null;
+    if (user.id_empresa) {
+      const empresa = await prisma.company.findUnique({
+        where: { id_empresa: user.id_empresa },
+        select: {
+          nome_fantasia: true,
+          razao_social: true,
+          cnpj: true
+        }
+      });
+      
+      if (empresa) {
+        empresaInfo = {
+          nome_fantasia: empresa.nome_fantasia,
+          razao_social: empresa.razao_social,
+          cnpj: empresa.cnpj
+        };
+      }
+    }
+
     return res.json({
       success: true,
-      data: user
+      data: {
+        ...user,
+        empresa: empresaInfo
+      }
     });
   } catch (error) {
     console.error('Erro ao buscar perfil:', error);
@@ -225,4 +272,126 @@ export const getProfile = async (req: any, res: Response) => {
       message: 'Erro interno do servidor'
     });
   }
+};
+
+export const updateProfile = async (req: any, res: Response) => {
+  try {
+    const { nome, email, currentPassword, newPassword } = req.body;
+    const userId = req.user.id_usuario;
+
+    console.log('🔍 Atualizando perfil do usuário:', userId);
+
+    // Buscar usuário atual
+    const currentUser = await prisma.user.findUnique({
+      where: { id_usuario: userId }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+
+    // Preparar dados para atualização
+    const updateData: any = {
+      data_atualizacao: new Date()
+    };
+
+    // Atualizar nome se fornecido
+    if (nome && nome.trim() !== '') {
+      updateData.nome = nome.trim();
+    }
+
+    // Atualizar email se fornecido
+    if (email && email.trim() !== '') {
+      // Verificar se o novo email já existe em outro usuário
+      const existingUserWithEmail = await prisma.user.findFirst({
+        where: {
+          email: email.toLowerCase().trim(),
+          id_usuario: { not: userId }
+        }
+      });
+
+      if (existingUserWithEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Este email já está sendo usado por outro usuário'
+        });
+      }
+
+      updateData.email = email.toLowerCase().trim();
+    }
+
+    // Se fornecida nova senha, verificar senha atual e atualizar
+    if (newPassword && newPassword.trim() !== '') {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Senha atual é obrigatória para alterar a senha'
+        });
+      }
+
+      // Verificar senha atual
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentUser.senha);
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Senha atual incorreta'
+        });
+      }
+
+      // Validar nova senha
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'A nova senha deve ter pelo menos 6 caracteres'
+        });
+      }
+
+      // Hash da nova senha
+      const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
+      updateData.senha = await bcrypt.hash(newPassword, saltRounds);
+
+      console.log('🔐 Senha atualizada para o usuário:', userId);
+    }
+
+    // Atualizar usuário
+    const updatedUser = await prisma.user.update({
+      where: { id_usuario: userId },
+      data: updateData,
+      select: {
+        id_usuario: true,
+        nome: true,
+        email: true,
+        perfil: true,
+        data_criacao: true,
+        data_atualizacao: true
+      }
+    });
+
+    console.log('✅ Perfil atualizado com sucesso:', updatedUser);
+
+    // Log de auditoria
+    console.log(`[AUDIT] Perfil atualizado: ${userId} - ${new Date().toISOString()}`);
+
+    return res.json({
+      success: true,
+      message: 'Perfil atualizado com sucesso',
+      data: updatedUser
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar perfil:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+};
+
+export default {
+  register,
+  login,
+  getProfile,
+  updateProfile
 };

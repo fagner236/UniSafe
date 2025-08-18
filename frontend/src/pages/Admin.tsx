@@ -1,15 +1,21 @@
+import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
-  Building2, 
   Database, 
   Shield, 
   Settings,
-  BarChart3,
   FileText,
   UserCheck
 } from 'lucide-react';
 
 const Admin = () => {
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Funcionalidades administrativas disponíveis
   const adminFeatures = [
     {
       title: 'Gestão de Usuários',
@@ -18,13 +24,7 @@ const Admin = () => {
       href: '/admin/users',
       color: 'bg-blue-600'
     },
-    {
-      title: 'Gestão de Empresas',
-      description: 'Administrar empresas filiadas e suas configurações',
-      icon: Building2,
-      href: '/admin/companies',
-      color: 'bg-green-600'
-    },
+
     {
       title: 'Backup e Restauração',
       description: 'Gerenciar backups do banco de dados e restaurações',
@@ -49,7 +49,7 @@ const Admin = () => {
     {
       title: 'Relatórios Avançados',
       description: 'Acessar relatórios detalhados e análises',
-      icon: BarChart3,
+      icon: Users, // Changed from BarChart3 to Users as per new_code
       href: '/admin/reports',
       color: 'bg-indigo-600'
     },
@@ -102,62 +102,12 @@ const Admin = () => {
           </div>
         </div>
 
-        {/* Estatísticas Rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="p-2 rounded-lg mr-4" style={{ backgroundColor: '#ffc9c0' }}>
-                <Users className="h-6 w-6" style={{ color: '#1d335b' }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Usuários Ativos</p>
-                <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>1,247</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="p-2 rounded-lg mr-4" style={{ backgroundColor: '#ffc9c0' }}>
-                <Building2 className="h-6 w-6" style={{ color: '#1d335b' }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Empresas Filiadas</p>
-                <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>89</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="p-2 rounded-lg mr-4" style={{ backgroundColor: '#ffc9c0' }}>
-                <Database className="h-6 w-6" style={{ color: '#1d335b' }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Tamanho do BD</p>
-                <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>2.4 GB</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center">
-              <div className="p-2 rounded-lg mr-4" style={{ backgroundColor: '#ffc9c0' }}>
-                <FileText className="h-6 w-6" style={{ color: '#1d335b' }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Logs Hoje</p>
-                <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>1,892</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Funcionalidades Administrativas */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {adminFeatures.map((feature, index) => (
             <div
               key={index}
+              onClick={() => navigate(feature.href)}
               className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer group hover:border-gray-300"
             >
               <div className="p-6">

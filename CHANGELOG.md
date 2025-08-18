@@ -1,182 +1,118 @@
-# Changelog
+# Changelog - UniSafe
 
-Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
+## [1.7.1] - 2025-08-18
 
-O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
-e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
+### 🔧 **Corrigido**
+- **Separação de responsabilidades entre Configurações e Gestão de Usuários**
+  - **Configurações** (menu do usuário): mostra apenas usuários da própria empresa
+  - **Gestão de Usuários** (link Sistema): mostra todos os usuários de todas as empresas
+- **Controle de acesso corrigido**
+  - Rota `/api/users/company`: usuários da própria empresa
+  - Rota `/api/users/system`: todos os usuários (apenas para Admins)
+- **Segurança mantida** com auditoria de todas as ações
 
-## [1.6.2] - 2025-08-16
+### 🎯 **Funcionalidades**
+- Usuários Admin podem gerenciar usuários da própria empresa em Configurações
+- Usuários Admin podem gerenciar todos os usuários do sistema em Gestão de Usuários
+- Filtros funcionam corretamente para cada contexto
+- Interface adaptativa baseada no tipo de acesso
 
-### Adicionado
-- **Atualizações de Dependências:**
-  - React atualizado para versão 18.3.0
-  - Express atualizado para versão 5.1.0
-  - Prisma atualizado para versão 6.14.0
-  - TypeScript atualizado para versão 5.9.2
-  - Vite atualizado para versão 5.4.19
-  - Tailwind CSS atualizado para versão 3.4.17
-- **Melhorias no Sistema de Verificação de CNPJ:**
-  - Logs detalhados para debugging
-  - Validação aprimorada de dados
-  - Tratamento de erros mais robusto
-- **Sistema de Versionamento:**
-  - Scripts de versionamento corrigidos
-  - Controle automático de versões
-  - Documentação atualizada automaticamente
-
-### Alterado
-- **Configurações de Segurança:**
-  - Rate limiting temporariamente desabilitado para desenvolvimento
-  - Headers de segurança atualizados (Helmet 8.1.0)
-  - Configurações de CORS aprimoradas
-- **Estrutura do Projeto:**
-  - Migrações do Prisma atualizadas
-  - Configurações de build otimizadas
-  - Scripts de deploy melhorados
-
-### Corrigido
-- **Scripts de Versionamento:**
-  - Problemas com caracteres especiais no sed
-  - Validação de arquivos de documentação
-  - Tratamento de erros no processo de versionamento
-- **Dependências:**
-  - Conflitos de versão resolvidos
-  - Vulnerabilidades de segurança atualizadas
-  - Compatibilidade entre pacotes melhorada
-
-### Documentação
-- **Novos Arquivos:**
-  - ATUALIZACAO_REACT_EXPRESS.md: Detalhes das atualizações
-  - DIAGNOSTICO_SISTEMA.md: Status e diagnóstico do sistema
-  - RATE_LIMITING_DESABILITADO.md: Explicação das configurações
-- **Arquivos Atualizados:**
-  - CHANGELOG.md: Histórico completo de versões
-  - CHECKPOINT_ESTADO_ATUAL.md: Status atual do sistema
-
-## [Unreleased]
-
-### Adicionado
-- Sistema de versionamento automático
-- Scripts de release automatizados
-- Controle de versões com Git tags
-
-## [1.6.0] - 2025-01-15
-
-### Adicionado
-- **Sistema de Verificação de CNPJ:**
-  - Verificação em tempo real de CNPJ no cadastro de empresas
-  - Validação automática durante o registro
-  - Interface intuitiva para verificação
-  - Integração com a API de empresas
-- **Sistema de Administração Completo:**
-  - Interface administrativa dedicada
-  - Gestão de usuários e empresas
-  - Backup e restauração do sistema
-  - Logs e monitoramento em tempo real
-  - Configurações de segurança avançadas
-- **Melhorias no Dashboard:**
-  - Novas estatísticas e visualizações
-  - Interface responsiva aprimorada
-  - Paleta de cores UniSafe implementada
-- **Validação Avançada de Dados:**
-  - Sistema robusto de validação de CPF, email e telefone
-  - Tratamento inteligente de erros
-  - Formatação brasileira aprimorada
-
-### Alterado
-- Reorganização dos menus principais da barra lateral
-- Implementação completa da paleta de cores UniSafe
-- Sistema de validação mais robusto e inteligente
-- Interface de usuário modernizada e responsiva
-
-### Corrigido
-- Problemas de validação de dados
-- Erros de formatação brasileira
-- Inconsistências de tipos TypeScript
-- Problemas de roteamento e autenticação
-
-## [1.0.1] - 2025-08-10
-
-### Adicionado
-- **Novas Estatísticas do Dashboard:**
-  - Top 10 Estados com análise por estado
-  - Tempo de Filiação com distribuição sindical
-  - Top 10 Cargos/Posições com análise por cargo
-  - Faixa Etária baseada na data de admissão
-- **Validação Avançada de Dados:**
-  - Validação de CPF com algoritmo oficial brasileiro
-  - Validação de email com regex flexível
-  - Validação de telefone com formatos brasileiros
-  - Tratamento inteligente de erros por linha
-- **Formatação Inteligente de Campos:**
-  - Conversão automática de números Excel para datas
-  - Formatação brasileira de moeda e datas
-  - Detecção automática de colunas
-- **Gestão de Empresas:**
-  - Visualização de empresas associadas
-  - Estatísticas por empresa
-  - Análise de departamentos por empresa
-- **Sistema de Relatórios:**
-  - Estrutura básica implementada
-  - Relatórios de funcionários
-  - Estatísticas por departamento
-  - Tendências mensais
-- **Recuperação de Senha:**
-  - Estrutura básica implementada
-
-### Alterado
-- Dashboard aprimorado com novas estatísticas
-- Sistema de validação mais robusto
-- Interface de usuário melhorada
-- Processamento de dados mais inteligente
-
-### Removido
-- Estatísticas de Faixa Salarial (sem dados disponíveis)
-
-### Corrigido
-- Problemas de validação de dados
-- Erros de formatação brasileira
-- Problemas de hot reload
-- Inconsistências de tipos TypeScript
-
-## [1.0.0] - 2025-08-09
-
-### Adicionado
-- **Sistema Base:**
-  - Autenticação JWT
-  - Upload e processamento de arquivos Excel/CSV
-  - Dashboard com estatísticas básicas
-  - Gestão de filiados
-  - Interface responsiva
-- **Funcionalidades Core:**
-  - Cards de resumo (Total, Válidos, Erros, Mensalidade)
-  - Estatísticas por Departamento
-  - Estatísticas por SE (Sindicato/Entidade)
-  - Análise por Municípios (Top 10)
-  - Análise por Unidades de Lotação (Top 10)
-  - Gráficos (Barras, Linha, Pizza)
-- **Tecnologias:**
-  - Frontend: React 18, TypeScript, Tailwind CSS
-  - Backend: Node.js, Express, TypeScript, Prisma
-  - Banco de dados: MySQL
-  - Autenticação: JWT, bcrypt
-
-### Alterado
-- Sistema inicial funcional
-
-### Removido
-- N/A
-
-### Corrigido
-- N/A
+### 🔒 **Segurança**
+- Todas as ações são registradas para auditoria
+- Controle de acesso baseado em perfil Admin
+- Separação clara entre escopo de empresa e escopo de sistema
 
 ---
 
-## Tipos de Mudanças
+## [1.7.0] - 2025-08-17
 
-- **Adicionado** para novas funcionalidades
-- **Alterado** para mudanças em funcionalidades existentes
-- **Deprecado** para funcionalidades que serão removidas em breve
-- **Removido** para funcionalidades removidas
-- **Corrigido** para correções de bugs
-- **Segurança** para correções de vulnerabilidades
+### 🆕 **Adicionado**
+- Sistema de controle de acesso por empresa
+- Perfis de usuário (admin, user, ghost)
+- Validação de CNPJ para empresas
+- Sistema de logs para auditoria
+- Middleware de segurança aprimorado
+
+### 🔧 **Corrigido**
+- Relacionamentos entre usuários e empresas
+- Validações de segurança
+- Tratamento de erros
+
+### 🎯 **Funcionalidades**
+- Gestão de usuários por empresa
+- Controle de acesso baseado em perfil
+- Sistema de auditoria completo
+- Validação de dados de entrada
+
+---
+
+## [1.6.2] - 2025-08-16
+
+### 🔧 **Corrigido**
+- Problemas de autenticação
+- Validações de formulário
+- Tratamento de erros
+
+---
+
+## [1.6.0] - 2025-08-15
+
+### 🆕 **Adicionado**
+- Sistema de upload de arquivos
+- Dashboard interativo
+- Tabela de aniversariantes
+- Sistema de notificações
+
+---
+
+## [1.5.0] - 2025-08-14
+
+### 🆕 **Adicionado**
+- Sistema de gestão de funcionários
+- Relatórios básicos
+- Filtros de busca
+
+---
+
+## [1.4.0] - 2025-08-13
+
+### 🆕 **Adicionado**
+- Sistema de motivos de afastamento
+- Gestão de empresas
+- Validações de dados
+
+---
+
+## [1.3.0] - 2025-08-12
+
+### 🆕 **Adicionado**
+- Dashboard interativo
+- Gráficos e estatísticas
+- Sistema de métricas
+
+---
+
+## [1.2.0] - 2025-08-11
+
+### 🆕 **Adicionado**
+- Tabela de aniversariantes
+- Sistema de notificações
+- Melhorias na interface
+
+---
+
+## [1.1.0] - 2025-08-10
+
+### 🆕 **Adicionado**
+- Sistema de autenticação
+- Gestão de usuários
+- Interface básica
+
+---
+
+## [1.0.0] - 2025-08-09
+
+### 🎉 **Lançamento Inicial**
+- Sistema base de gestão
+- Estrutura de banco de dados
+- Interface de usuário básica

@@ -48,7 +48,7 @@ export const validateLogin = [
 
 // Validação de registro
 export const validateRegister = [
-  body('nome').trim().isLength({ min: 2, max: 50 }).escape(),
+  body('nome').trim().isLength({ min: 2, max: 50 }),
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }).matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
   (req: any, res: any, next: any) => {
@@ -66,8 +66,8 @@ export const validateRegister = [
 
 // Validação de dados da empresa
 export const validateCompanyData = [
-  body('razao_social').trim().isLength({ min: 2, max: 100 }).escape(),
-  body('nome_fantasia').optional().trim().isLength({ min: 2, max: 100 }).escape(),
+  body('razao_social').trim().isLength({ min: 2, max: 100 }),
+  body('nome_fantasia').optional().trim().isLength({ min: 2, max: 100 }),
   body('cnpj').custom((value) => {
     const cnpjRegex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
     if (!cnpjRegex.test(value)) {
@@ -75,9 +75,15 @@ export const validateCompanyData = [
     }
     return true;
   }),
-  body('endereco').trim().isLength({ min: 5, max: 200 }).escape(),
-  body('cidade').trim().isLength({ min: 2, max: 50 }).escape(),
-  body('estado').trim().isLength({ min: 2, max: 2 }).isUppercase(),
+  body('endereco').trim().isLength({ min: 5, max: 200 }),
+  body('cidade').trim().isLength({ min: 2, max: 50 }),
+  body('estado').trim().isLength({ min: 2, max: 2 }).custom((value) => {
+    const estado = value.toUpperCase();
+    if (!/^[A-Z]{2}$/.test(estado)) {
+      throw new Error('Estado deve ter exatamente 2 letras maiúsculas');
+    }
+    return estado;
+  }),
   (req: any, res: any, next: any) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

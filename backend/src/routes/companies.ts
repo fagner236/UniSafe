@@ -124,18 +124,25 @@ router.put('/:id', auth, validateCompanyData, async (req: Request, res: Response
 });
 
 // Rota de verificação de CNPJ
-console.log('📝 Registrando rota: GET /api/companies/check-cnpj/:cnpj');
-router.get('/check-cnpj/:cnpj', async (req: Request, res: Response) => {
-  console.log('🔍 Rota de verificação de CNPJ chamada:', req.params.cnpj);
+console.log('📝 Registrando rota: GET /api/companies/check-cnpj');
+router.get('/check-cnpj', async (req: Request, res: Response) => {
+  console.log('🔍 Rota de verificação de CNPJ chamada');
   console.log('🔍 URL completa:', req.url);
   console.log('🔍 Método:', req.method);
   
   try {
-    const { cnpj } = req.params;
+    const { cnpj } = req.query;
     console.log('🔍 CNPJ recebido:', cnpj);
+    
+    if (!cnpj || typeof cnpj !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'CNPJ é obrigatório'
+      });
+    }
 
-    // Buscar empresa pelo CNPJ
-    const company = await prisma.company.findUnique({
+    // Buscar empresa pelo CNPJ (considerando ambos os formatos)
+    let company = await prisma.company.findUnique({
       where: { cnpj },
       select: {
         id_empresa: true,
@@ -149,6 +156,44 @@ router.get('/check-cnpj/:cnpj', async (req: Request, res: Response) => {
         data_atualizacao: true
       }
     });
+
+    // Se não encontrou, tentar com o formato formatado
+    if (!company) {
+      const cnpjFormatado = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+      company = await prisma.company.findUnique({
+        where: { cnpj: cnpjFormatado },
+        select: {
+          id_empresa: true,
+          razao_social: true,
+          nome_fantasia: true,
+          cnpj: true,
+          endereco: true,
+          cidade: true,
+          estado: true,
+          data_criacao: true,
+          data_atualizacao: true
+        }
+      });
+    }
+
+    // Se ainda não encontrou, tentar com o formato limpo
+    if (!company) {
+      const cnpjLimpo = cnpj.replace(/\D/g, '');
+      company = await prisma.company.findUnique({
+        where: { cnpj: cnpjLimpo },
+        select: {
+          id_empresa: true,
+          razao_social: true,
+          nome_fantasia: true,
+          cnpj: true,
+          endereco: true,
+          cidade: true,
+          estado: true,
+          data_criacao: true,
+          data_atualizacao: true
+        }
+      });
+    }
 
     console.log('📊 Resultado da busca:', company ? 'Empresa encontrada' : 'CNPJ disponível');
 

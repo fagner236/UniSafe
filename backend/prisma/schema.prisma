@@ -13,10 +13,14 @@ model User {
   nome             String   @map("nome") @db.VarChar(255)
   email            String   @unique(map: "users_email_key") @map("email") @db.VarChar(255)
   senha            String   @map("senha")
-  perfil           String   @default("user") @map("perfil")
+  perfil           String   @default("ghost") @map("perfil")
   data_criacao     DateTime @default(now()) @map("data_criacao")
   data_atualizacao DateTime @updatedAt @map("data_atualizacao")
+  
+  // Relacionamentos
   uploads          Upload[]
+  systemLogs       SystemLog[]
+  empresa          Company? @relation(fields: [id_empresa], references: [id_empresa], onDelete: SetNull)
 
   @@map("usuarios")
 }
@@ -52,5 +56,39 @@ model Company {
   data_criacao     DateTime @default(now()) @map("data_criacao")
   data_atualizacao DateTime @updatedAt @map("data_atualizacao")
 
+  // Relacionamentos
+  users            User[]
+  systemLogs       SystemLog[]
+
   @@map("empresas")
+}
+
+model SystemLog {
+  id          String    @id @default(cuid())
+  timestamp   DateTime  @default(now())
+  level       String    @db.VarChar(10) // INFO, WARN, ERROR, DEBUG, AUDIT
+  category    String    @db.VarChar(50) // AUTH, USER, COMPANY, UPLOAD, SYSTEM, SECURITY
+  message     String    @db.Text
+  userId      String?   @map("user_id")
+  userEmail   String?   @map("user_email") @db.VarChar(255)
+  userProfile String?   @map("user_profile") @db.VarChar(50)
+  companyId   String?   @map("company_id")
+  companyName String?   @map("company_name") @db.VarChar(255)
+  ipAddress   String?   @map("ip_address") @db.VarChar(45)
+  userAgent   String?   @map("user_agent") @db.Text
+  sessionId   String?   @map("session_id") @db.VarChar(255)
+  action      String?   @db.VarChar(100)
+  resource    String?   @db.VarChar(255)
+  details     Json?
+
+  // Relacionamentos
+  user        User?     @relation(fields: [userId], references: [id_usuario], onDelete: SetNull)
+  company     Company?  @relation(fields: [companyId], references: [id_empresa], onDelete: SetNull)
+
+  @@index([timestamp], map: "system_logs_timestamp_idx")
+  @@index([level], map: "system_logs_level_idx")
+  @@index([category], map: "system_logs_category_idx")
+  @@index([userId], map: "system_logs_user_id_idx")
+  @@index([companyId], map: "system_logs_company_id_idx")
+  @@map("system_logs")
 }
