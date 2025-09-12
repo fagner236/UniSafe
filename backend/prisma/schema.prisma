@@ -8,87 +8,157 @@ datasource db {
 }
 
 model User {
-  id_usuario       String   @id @default(cuid()) @map("id_usuario")
-  id_empresa       String?  @map("id_empresa")
-  nome             String   @map("nome") @db.VarChar(255)
-  email            String   @unique(map: "users_email_key") @map("email") @db.VarChar(255)
-  senha            String   @map("senha")
-  perfil           String   @default("ghost") @map("perfil")
-  data_criacao     DateTime @default(now()) @map("data_criacao")
-  data_atualizacao DateTime @updatedAt @map("data_atualizacao")
-  
-  // Relacionamentos
-  uploads          Upload[]
+  id_usuario       String      @id @default(cuid()) @map("id_usuario")
+  id_empresa       String?     @map("id_empresa")
+  nome             String      @map("nome") @db.VarChar(255)
+  email            String      @unique(map: "users_email_key") @map("email") @db.VarChar(255)
+  senha            String      @map("senha")
+  perfil           String      @default("ghost") @map("perfil")
+  data_criacao     DateTime    @default(now()) @map("data_criacao")
+  data_atualizacao DateTime    @updatedAt @map("data_atualizacao")
+  base_sindical    String?     @map("base_sindical") @db.VarChar(255)
   systemLogs       SystemLog[]
-  empresa          Company? @relation(fields: [id_empresa], references: [id_empresa], onDelete: SetNull)
+  uploads          Upload[]
+  empresa          Company?    @relation(fields: [id_empresa], references: [id_empresa])
+  empregados       Empregado[]
 
+  @@index([id_empresa], map: "usuarios_id_empresa_fkey")
   @@map("usuarios")
 }
 
+model EmployeeData {
+  id           String   @id @default(cuid())
+  uploadId     String   @map("upload_id")
+  id_empresa   String   @map("id_empresa")
+  employeeData Json     @map("employee_data")
+  processedAt  DateTime @default(now()) @map("processed_at")
+  empresa      Company  @relation(fields: [id_empresa], references: [id_empresa], onDelete: Cascade)
+  upload       Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@index([id_empresa], map: "employee_data_id_empresa_fkey")
+  @@index([uploadId], map: "employee_data_upload_id_fkey")
+  @@map("employee_data")
+}
+
 model Upload {
-  id               String    @id @default(cuid())
+  id               String         @id @default(cuid())
   filename         String
   originalName     String
   size             Int
   mimetype         String
-  path             String
-  status           String    @default("pending")
+  path             String?
+  status           String         @default("pending")
   uploadedBy       String
-  uploadedAt       DateTime  @default(now())
+  uploadedAt       DateTime       @default(now())
   processedAt      DateTime?
   errorMessage     String?
   totalRecords     Int?
   processedRecords Int?
-  user             User      @relation(fields: [uploadedBy], references: [id_usuario], onDelete: Cascade)
+  id_empresa       String?        @map("id_empresa")
+  employeeData     EmployeeData[]
+  empresa          Company?       @relation(fields: [id_empresa], references: [id_empresa])
+  user             User           @relation(fields: [uploadedBy], references: [id_usuario], onDelete: Cascade)
 
   @@index([uploadedBy], map: "uploads_uploadedBy_fkey")
+  @@index([id_empresa], map: "uploads_id_empresa_fkey")
   @@map("uploads")
 }
 
 model Company {
-  id_empresa       String   @id @default(cuid()) @map("id_empresa")
-  razao_social     String   @map("razao_social") @db.VarChar(255)
-  nome_fantasia    String?  @map("nome_fantasia") @db.VarChar(255)
-  cnpj             String   @unique(map: "companies_cnpj_key") @map("cnpj") @db.VarChar(18)
-  endereco         String   @map("endereco") @db.VarChar(255)
-  cidade           String   @map("cidade") @db.VarChar(255)
-  estado           String   @map("estado") @db.VarChar(255)
-  data_criacao     DateTime @default(now()) @map("data_criacao")
-  data_atualizacao DateTime @updatedAt @map("data_atualizacao")
-
-  // Relacionamentos
-  users            User[]
+  id_empresa       String         @id @default(cuid()) @map("id_empresa")
+  razao_social     String         @map("razao_social") @db.VarChar(255)
+  nome_fantasia    String?        @map("nome_fantasia") @db.VarChar(255)
+  cnpj             String         @unique(map: "companies_cnpj_key") @map("cnpj") @db.VarChar(18)
+  endereco         String         @map("endereco") @db.VarChar(255)
+  cidade           String         @map("cidade") @db.VarChar(255)
+  estado           String         @map("estado") @db.VarChar(255)
+  data_criacao     DateTime       @default(now()) @map("data_criacao")
+  data_atualizacao DateTime       @updatedAt @map("data_atualizacao")
+  employeeData     EmployeeData[]
   systemLogs       SystemLog[]
+  uploads          Upload[]
+  users            User[]
 
   @@map("empresas")
 }
 
 model SystemLog {
-  id          String    @id @default(cuid())
-  timestamp   DateTime  @default(now())
-  level       String    @db.VarChar(10) // INFO, WARN, ERROR, DEBUG, AUDIT
-  category    String    @db.VarChar(50) // AUTH, USER, COMPANY, UPLOAD, SYSTEM, SECURITY
-  message     String    @db.Text
-  userId      String?   @map("user_id")
-  userEmail   String?   @map("user_email") @db.VarChar(255)
-  userProfile String?   @map("user_profile") @db.VarChar(50)
-  companyId   String?   @map("company_id")
-  companyName String?   @map("company_name") @db.VarChar(255)
-  ipAddress   String?   @map("ip_address") @db.VarChar(45)
-  userAgent   String?   @map("user_agent") @db.Text
-  sessionId   String?   @map("session_id") @db.VarChar(255)
-  action      String?   @db.VarChar(100)
-  resource    String?   @db.VarChar(255)
+  id          String   @id @default(cuid())
+  timestamp   DateTime @default(now())
+  level       String   @db.VarChar(10)
+  category    String   @db.VarChar(50)
+  message     String   @db.Text
+  userId      String?  @map("user_id")
+  userEmail   String?  @map("user_email") @db.VarChar(255)
+  userProfile String?  @map("user_profile") @db.VarChar(50)
+  companyId   String?  @map("company_id")
+  companyName String?  @map("company_name") @db.VarChar(255)
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  userAgent   String?  @map("user_agent") @db.Text
+  sessionId   String?  @map("session_id") @db.VarChar(255)
+  action      String?  @db.VarChar(100)
+  resource    String?  @db.VarChar(255)
   details     Json?
+  company     Company? @relation(fields: [companyId], references: [id_empresa])
+  user        User?    @relation(fields: [userId], references: [id_usuario])
 
-  // Relacionamentos
-  user        User?     @relation(fields: [userId], references: [id_usuario], onDelete: SetNull)
-  company     Company?  @relation(fields: [companyId], references: [id_empresa], onDelete: SetNull)
-
-  @@index([timestamp], map: "system_logs_timestamp_idx")
-  @@index([level], map: "system_logs_level_idx")
-  @@index([category], map: "system_logs_category_idx")
-  @@index([userId], map: "system_logs_user_id_idx")
-  @@index([companyId], map: "system_logs_company_id_idx")
+  @@index([timestamp])
+  @@index([level])
+  @@index([category])
+  @@index([userId])
+  @@index([companyId])
   @@map("system_logs")
+}
+
+model BaseDados {
+  id                Int       @id @default(autoincrement())
+  mes               String    @map("mes") @db.VarChar(50)
+  se                String    @map("se") @db.VarChar(50)
+  lotacao           String    @map("lotacao") @db.VarChar(100)
+  municipio         String    @map("municipio") @db.VarChar(100)
+  matricula         String    @map("matricula") @db.VarChar(50)
+  nome              String    @map("nome") @db.VarChar(255)
+  sexo              String    @map("sexo") @db.VarChar(20)
+  data_nasc         DateTime  @map("data_nasc") @db.Date
+  raca              String    @map("raca") @db.VarChar(50)
+  grau_instrucao    String    @map("grau_instrucao") @db.VarChar(100)
+  data_admissao     DateTime  @map("data_admissao") @db.Date
+  cargo             String    @map("cargo") @db.VarChar(100)
+  cargo_esp         String?   @map("cargo_esp") @db.VarChar(100)
+  cargo_nivel       String?   @map("cargo_nivel") @db.VarChar(50)
+  funcao            String?   @map("funcao") @db.VarChar(100)
+  jornada_trab      String?   @map("jornada_trab") @db.VarChar(50)
+  tipo_deficiencia  String?   @map("tipo_deficiencia") @db.VarChar(100)
+  data_afast        DateTime? @map("data_afast") @db.Date
+  motivo_afast      String?   @map("motivo_afast") @db.VarChar(255)
+  base_sindical     String    @map("base_sindical") @db.VarChar(100)
+  filiado           String    @map("filiado") @db.VarChar(10)
+  valor_mensalidade Decimal?  @map("valor_mensalidade") @db.Decimal(10, 2)
+  data_criacao      DateTime  @default(now()) @map("data_criacao")
+  data_atualizacao  DateTime  @default(now()) @updatedAt @map("data_atualizacao")
+
+  @@index([mes])
+  @@index([se])
+  @@index([lotacao])
+  @@index([municipio])
+  @@index([base_sindical])
+  @@index([filiado])
+  @@map("base_dados")
+}
+
+model Empregado {
+  id_empregados   Int       @id @default(autoincrement()) @map("id_empregados")
+  matricula       String    @unique @map("matricula") @db.VarChar(8)
+  email           String?   @unique @map("e-mail") @db.VarChar(200)
+  celular         String?   @unique @map("celular") @db.VarChar(15)
+  foto            String?   @map("foto") @db.VarChar(255)
+  id_usuario      String    @map("id_usuario") @db.VarChar(191)
+  data_criacao    DateTime? @map("data_criacao") @db.DateTime(3)
+  data_atualizacao DateTime? @map("data_atualizacao") @db.DateTime(3)
+  
+  usuario         User      @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@index([matricula])
+  @@index([id_usuario])
+  @@map("empregados")
 }

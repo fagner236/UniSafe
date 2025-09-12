@@ -38,29 +38,28 @@ const Header = () => {
   return (
     <header className="shadow-sm border-b border-gray-200" style={{ backgroundColor: '#ffc9c0' }}>
       <div className="px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-end items-center h-20" style={{ height: '79.5px' }}>
+        <div className="flex justify-between items-center h-20" style={{ height: '79.5px' }}>
           
-                      <div className="flex items-center space-x-4">
-              {/* Notifications - OCULTO */}
-              {/* <button className="p-2 relative hover:opacity-70 transition-opacity" style={{ color: '#1d335b' }}>
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-0 right-0 block h-2 w-2 rounded-full" style={{ backgroundColor: '#c9504c' }}></span>
-              </button> */}
-
-              {/* User Menu */}
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center space-x-2 p-2 rounded-lg hover:opacity-80 transition-opacity"
-                  style={{ backgroundColor: '#1d335b', color: '#ffffff' }}
-                >
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#c9504c' }}>
-                    <User className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="hidden md:block text-sm font-medium" style={{ color: '#ffffff' }}>
-                    {user?.nome}
-                  </span>
-                </button>
+          {/* Lado esquerdo - Espaço reservado para futuras funcionalidades */}
+          <div className="flex items-center space-x-3">
+            {/* Espaço disponível para futuras implementações */}
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            {/* User Menu */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center space-x-2 p-2 rounded-lg hover:opacity-80 transition-opacity"
+                style={{ backgroundColor: '#1d335b', color: '#ffffff' }}
+              >
+                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#c9504c' }}>
+                  <User className="h-4 w-4 text-white" />
+                </div>
+                <span className="hidden md:block text-sm font-medium" style={{ color: '#ffffff' }}>
+                  {user?.nome}
+                </span>
+              </button>
 
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg py-2 z-50" style={{ backgroundColor: '#1d335b', border: '1px solid #c9504c' }}>
@@ -106,6 +105,8 @@ const Header = () => {
                         )}
                       </div>
                     )}
+                    
+
                   </div>
 
                   {/* Opções do menu */}
@@ -121,18 +122,18 @@ const Header = () => {
                     
                     {/* Menu Configurações - Apenas para usuários admin */}
                     {user?.perfil === 'admin' && (
-                                          <a
-                      href="/settings"
-                      className="flex items-center px-4 py-2 text-sm hover:opacity-80 transition-opacity"
-                      style={{ color: '#ffffff' }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        window.location.href = '/settings';
-                      }}
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Configurações
-                    </a>
+                      <a
+                        href="/settings"
+                        className="flex items-center px-4 py-2 text-sm hover:opacity-80 transition-opacity"
+                        style={{ color: '#ffffff' }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = '/settings';
+                        }}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Configurações
+                      </a>
                     )}
                     <hr className="my-1" style={{ borderColor: '#c9504c' }} />
                     <button

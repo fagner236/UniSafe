@@ -1,0 +1,532 @@
+import express from 'express';
+import { PrismaClient } from '@prisma/client';
+import { auth, AuthRequest } from '../middleware/auth';
+// import { validateCompanyAccess } from '../middleware/auth';
+
+const router = express.Router();
+const prisma = new PrismaClient();
+
+// GET /api/dashboard/base-dados - Nova rota para buscar dados da tabela base_dados
+router.get('/base-dados', auth, async (req: AuthRequest, res) => {
+  try {
+    // Buscar dados da tabela base_dados (sem filtro de empresa, pois o campo foi removido)
+    const baseDados = await prisma.baseDados.findMany({
+      orderBy: { data_criacao: 'desc' }
+    });
+
+    if (baseDados.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          employees: [],
+          columns: [],
+          summary: {
+            totalRecords: 0,
+            validRecords: 0,
+            invalidRecords: 0,
+            companies: [],
+            departments: [],
+            averageSalary: 0
+          },
+          errors: [],
+          uploadedAt: new Date().toISOString(),
+          fileName: 'Nenhum dado encontrado na base_dados',
+          dataSource: 'base_dados'
+        }
+      });
+    }
+
+    // Função para formatar datas no formato DD/MM/AAAA
+    const formatDate = (date: Date | null): string => {
+      if (!date) return '-';
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+
+    // Definir a ordem das colunas conforme o schema do banco (excluindo apenas o ID)
+    const columnOrder = [
+      'mes',
+      'se',
+      'lotacao',
+      'municipio',
+      'matricula',
+      'nome',
+      'sexo',
+      'data_nasc',
+      'raca',
+      'grau_instrucao',
+      'data_admissao',
+      'cargo',
+      'cargo_esp',
+      'cargo_nivel',
+      'funcao',
+      'jornada_trab',
+      'tipo_deficiencia',
+      'data_afast',
+      'motivo_afast',
+      'base_sindical',
+      'filiado',
+      'valor_mensalidade',
+      'data_criacao',
+      'data_atualizacao'
+    ];
+
+    // Converter dados da base_dados para o formato esperado pelo frontend
+    const employees = baseDados.map(record => {
+      const employee: any = {};
+      
+      // Mapear campos na ordem definida
+      columnOrder.forEach(column => {
+        const fieldValue = record[column as keyof typeof record];
+        
+        if (column === 'valor_mensalidade') {
+          employee[column] = fieldValue ? parseFloat(fieldValue.toString()) : 0;
+        } else if (column === 'data_nasc' || column === 'data_admissao' || column === 'data_afast' || column === 'data_criacao' || column === 'data_atualizacao') {
+          // Formatar campos de data no formato DD/MM/AAAA
+          console.log(`🔧 Formatando data para coluna ${column}:`, fieldValue);
+          employee[column] = formatDate(fieldValue as Date);
+          console.log(`✅ Data formatada:`, employee[column]);
+        } else {
+          employee[column] = fieldValue;
+        }
+      });
+
+      // Adicionar campos de compatibilidade
+      employee.company = 'Empresa Principal';
+      employee.department = record.lotacao || 'Não informado';
+      employee.salary = record.valor_mensalidade ? parseFloat(record.valor_mensalidade.toString()) : 0;
+      employee.status = 'Ativo';
+
+      return employee;
+    });
+    });
+
+    // Calcular estatísticas
+    const companies = [...new Set(employees.map(emp => emp.company).filter(Boolean))];
+    const departments = [...new Set(employees.map(emp => emp.department).filter(Boolean))];
+    const averageSalary = employees.length > 0 
+      ? employees.reduce((sum, emp) => sum + (emp.salary || 0), 0) / employees.length 
+      : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        employees,
+        columns: columnOrder, // Usar a ordem definida
+        summary: {
+          totalRecords: employees.length,
+          validRecords: employees.length,
+          invalidRecords: 0,
+          companies,
+          departments,
+          averageSalary
+        },
+        errors: [],
+        uploadedAt: baseDados[0]?.data_criacao?.toISOString() || new Date().toISOString(),
+        fileName: 'Dados da Base de Dados',
+        dataSource: 'base_dados'
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao buscar dados da base_dados:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+});
+
+// GET /api/dashboard/stats - Modificado para priorizar dados da base_dados
+router.get('/stats', auth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.id_usuario;
+    const companyId = req.user!.id_empresa;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Usuário não possui empresa vinculada'
+      });
+    }
+
+    // Primeiro, tentar buscar dados da tabela base_dados
+    let baseDadosCount = 0;
+    let baseDadosStats = null;
+
+    try {
+      const baseDados = await prisma.baseDados.findMany();
+      baseDadosCount = baseDados.length;
+
+      if (baseDadosCount > 0) {
+        // Calcular estatísticas da base_dados
+        const activeEmployees = baseDados.filter(emp => {
+          // Verificar se há data de afastamento
+          if (emp.data_afast && emp.data_afast < new Date()) {
+            return false;
+          }
+          return true;
+        }).length;
+
+        const inactiveEmployees = baseDadosCount - activeEmployees;
+
+        // Calcular salário médio
+        const totalSalary = baseDados.reduce((sum, emp) => {
+          const salary = emp.valor_mensalidade ? parseFloat(emp.valor_mensalidade.toString()) : 0;
+          return sum + salary;
+        }, 0);
+        const averageSalary = baseDadosCount > 0 ? totalSalary / baseDadosCount : 0;
+
+        // Contar departamentos únicos
+        const departments = new Set<string>();
+        baseDados.forEach(emp => {
+          if (emp.lotacao) {
+            departments.add(emp.lotacao);
+          }
+        });
+
+        baseDadosStats = {
+          totalEmployees: baseDadosCount,
+          activeEmployees,
+          inactiveEmployees,
+          pendingEmployees: 0,
+          totalCompanies: 1,
+          totalDepartments: departments.size,
+          averageSalary,
+          recentUploads: 0,
+          dataSource: 'base_dados'
+        };
+      }
+    } catch (error) {
+      console.log('Erro ao buscar dados da base_dados, tentando employee_data:', error);
+    }
+
+    // Se não houver dados na base_dados, buscar do upload mais recente
+    if (!baseDadosStats) {
+      const latestUpload = await prisma.upload.findFirst({
+        where: { 
+          id_empresa: companyId,
+          status: { in: ['completed', 'completed_with_errors'] }
+        },
+        orderBy: { uploadedAt: 'desc' },
+        select: { id: true }
+      });
+
+      if (!latestUpload) {
+        return res.json({
+          success: true,
+          data: {
+            totalEmployees: 0,
+            activeEmployees: 0,
+            inactiveEmployees: 0,
+            pendingEmployees: 0,
+            totalCompanies: 1,
+            totalDepartments: 0,
+            averageSalary: 0,
+            recentUploads: 0,
+            dataSource: 'employee_data'
+          }
+        });
+      }
+
+      // Buscar dados dos funcionários apenas do upload mais recente
+      const employeeData = await prisma.employeeData.findMany({
+        where: { 
+          id_empresa: companyId,
+          uploadId: latestUpload.id
+        },
+        select: { employeeData: true }
+      });
+
+      // Processar dados para estatísticas
+      const employees = employeeData.map(ed => ed.employeeData as any);
+      
+      // Calcular estatísticas
+      const totalEmployees = employees.length;
+      const activeEmployees = employees.filter(emp => {
+        // Verificar se há coluna de status ou situação
+        const statusColumns = ['Status', 'Situacao', 'STATUS', 'SITUACAO', 'Ativo', 'ATIVO'];
+        const statusCol = statusColumns.find(col => emp[col]);
+        if (statusCol) {
+          const status = String(emp[statusCol]).toLowerCase();
+          return status.includes('ativo') || status.includes('at') || status === '1';
+        }
+        return true; // Se não encontrar coluna de status, considera ativo
+      }).length;
+
+      const inactiveEmployees = totalEmployees - activeEmployees;
+      const pendingEmployees = 0; // Por enquanto, sempre 0
+
+      // Calcular salário médio
+      const salaryColumns = ['Salario', 'SALARIO', 'Salary', 'SALARY', 'Remuneracao', 'REMUNERACAO'];
+      const totalSalary = employees.reduce((sum, emp) => {
+        const salaryCol: string | undefined = salaryColumns.find(col => emp[col]);
+        if (salaryCol && emp[salaryCol]) {
+          const salary = parseFloat(String(emp[salaryCol]).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+          return sum + salary;
+        }
+        return sum;
+      }, 0);
+      const averageSalary = totalEmployees > 0 ? totalSalary / totalEmployees : 0;
+
+      // Contar departamentos únicos
+      const departmentColumns = ['Departamento', 'DEPARTAMENTO', 'Department', 'DEPARTMENT', 'Setor', 'SETOR'];
+      const departments = new Set<string>();
+      employees.forEach(emp => {
+        const deptCol: string | undefined = departmentColumns.find(col => emp[col]);
+        if (deptCol && emp[deptCol]) {
+          departments.add(String(emp[deptCol]));
+        }
+      });
+
+      // Contar uploads recentes da empresa
+      const recentUploads = await prisma.upload.count({
+        where: { 
+          empresa: { id_empresa: companyId },
+          uploadedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+        }
+      });
+
+      baseDadosStats = {
+        totalEmployees,
+        activeEmployees,
+        inactiveEmployees,
+        pendingEmployees,
+        totalCompanies: 1, // Apenas a empresa do usuário
+        totalDepartments: departments.size,
+        averageSalary,
+        recentUploads,
+        dataSource: 'employee_data'
+      };
+    }
+
+    return res.json({
+      success: true,
+      data: baseDadosStats
+    });
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+});
+
+// GET /api/dashboard/employees - Modificado para priorizar dados da base_dados
+router.get('/employees', auth, async (req: AuthRequest, res) => {
+  try {
+    const companyId = req.user!.id_empresa;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Usuário não possui empresa vinculada'
+      });
+    }
+
+    // Primeiro, tentar buscar dados da tabela base_dados
+    let baseDadosData = null;
+
+    try {
+      const baseDados = await prisma.baseDados.findMany({
+        orderBy: { data_criacao: 'desc' }
+      });
+
+      if (baseDados.length > 0) {
+        // Função para formatar datas no formato DD/MM/AAAA
+        const formatDate = (date: Date | null): string => {
+          if (!date) return '-';
+          const day = date.getDate().toString().padStart(2, '0');
+          const month = (date.getMonth() + 1).toString().padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
+
+        // Definir a ordem das colunas conforme o schema do banco (excluindo apenas o ID)
+        const columnOrder = [
+          'mes',
+          'se',
+          'lotacao',
+          'municipio',
+          'matricula',
+          'nome',
+          'sexo',
+          'data_nasc',
+          'raca',
+          'grau_instrucao',
+          'data_admissao',
+          'cargo',
+          'cargo_esp',
+          'cargo_nivel',
+          'funcao',
+          'jornada_trab',
+          'tipo_deficiencia',
+          'data_afast',
+          'motivo_afast',
+          'base_sindical',
+          'filiado',
+          'valor_mensalidade',
+          'data_criacao',
+          'data_atualizacao'
+        ];
+
+        // Converter dados da base_dados para o formato esperado pelo frontend
+        const employees = baseDados.map(record => {
+          const employee: any = {};
+          
+          // Mapear campos na ordem definida
+          columnOrder.forEach(column => {
+            const fieldValue = record[column as keyof typeof record];
+            
+            if (column === 'valor_mensalidade') {
+              employee[column] = fieldValue ? parseFloat(fieldValue.toString()) : 0;
+            } else if (column === 'data_nasc' || column === 'data_admissao' || column === 'data_afast' || column === 'data_criacao' || column === 'data_atualizacao') {
+              // Formatar campos de data no formato DD/MM/AAAA
+              console.log(`🔧 Formatando data para coluna ${column}:`, fieldValue);
+              employee[column] = formatDate(fieldValue as Date);
+              console.log(`✅ Data formatada:`, employee[column]);
+            } else {
+              employee[column] = fieldValue;
+            }
+          });
+
+          // Adicionar campos de compatibilidade
+          employee.company = 'Empresa Principal';
+          employee.department = record.lotacao || 'Não informado';
+          employee.salary = record.valor_mensalidade ? parseFloat(record.valor_mensalidade.toString()) : 0;
+          employee.status = 'Ativo';
+
+          return employee;
+        });
+
+        // Usar a ordem definida das colunas
+        const columns = columnOrder;
+
+        // Calcular estatísticas
+        const companies = [...new Set(employees.map(emp => emp.company).filter(Boolean))];
+        const departments = [...new Set(employees.map(emp => emp.department).filter(Boolean))];
+        const averageSalary = employees.length > 0 
+          ? employees.reduce((sum, emp) => sum + (emp.salary || 0), 0) / employees.length 
+          : 0;
+
+        baseDadosData = {
+          employees,
+          columns,
+          summary: {
+            totalRecords: employees.length,
+            validRecords: employees.length,
+            invalidRecords: 0,
+            companies,
+            departments,
+            averageSalary
+          },
+          errors: [],
+          uploadedAt: baseDados[0]?.data_criacao?.toISOString() || new Date().toISOString(),
+          fileName: 'Dados da Base de Dados',
+          dataSource: 'base_dados'
+        };
+      }
+    } catch (error) {
+      console.log('Erro ao buscar dados da base_dados, tentando employee_data:', error);
+    }
+
+    // Se não houver dados na base_dados, buscar do upload mais recente
+    if (!baseDadosData) {
+      const latestUpload = await prisma.upload.findFirst({
+        where: { 
+          id_empresa: companyId,
+          status: { in: ['completed', 'completed_with_errors'] }
+        },
+        orderBy: { uploadedAt: 'desc' },
+        select: {
+          id: true,
+          originalName: true,
+          uploadedAt: true,
+          status: true
+        }
+      });
+
+      if (!latestUpload) {
+        return res.json({
+          success: true,
+          data: {
+            employees: [],
+            columns: [],
+            summary: {
+              totalRecords: 0,
+              validRecords: 0,
+              invalidRecords: 0,
+              companies: [],
+              departments: [],
+              averageSalary: 0
+            },
+            errors: [],
+            uploadedAt: new Date().toISOString(),
+            fileName: 'Nenhum arquivo encontrado',
+            dataSource: 'employee_data'
+          }
+        });
+      }
+
+      // Buscar apenas os dados do upload mais recente
+      const employeeData = await prisma.employeeData.findMany({
+        where: { 
+          id_empresa: companyId,
+          uploadId: latestUpload.id
+        },
+        select: { 
+          employeeData: true,
+          processedAt: true
+        }
+      });
+
+      // Processar dados para o formato esperado pelo frontend
+      const employees = employeeData.map(ed => ed.employeeData as any);
+      
+      // Extrair colunas únicas
+      const columns = employees.length > 0 ? Object.keys(employees[0]) : [];
+
+      // Calcular estatísticas
+      const companies = [...new Set(employees.map(emp => emp.company).filter(Boolean))];
+      const departments = [...new Set(employees.map(emp => emp.department).filter(Boolean))];
+      const averageSalary = employees.length > 0 
+        ? employees.reduce((sum, emp) => {
+            const salary = parseFloat(String(emp.salary || 0).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+            return sum + salary;
+          }, 0) / employees.length 
+        : 0;
+
+      baseDadosData = {
+        employees,
+        columns,
+        summary: {
+          totalRecords: employees.length,
+          validRecords: employees.length,
+          invalidRecords: 0,
+          companies,
+          departments,
+          averageSalary
+        },
+        errors: [],
+        uploadedAt: latestUpload.uploadedAt.toISOString(),
+        fileName: latestUpload.originalName,
+        dataSource: 'employee_data'
+      };
+    }
+
+    return res.json({
+      success: true,
+      data: baseDadosData
+    });
+  } catch (error) {
+    console.error('Erro ao buscar dados dos funcionários:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+});
+
+export default router;

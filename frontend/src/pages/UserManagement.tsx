@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { 
   Search, 
   Download, 
-  Eye, 
   Edit, 
   Trash, 
   Filter, 
@@ -13,21 +12,29 @@ import {
   Shield,
   User,
   Ghost,
-  Calendar,
   Mail,
   Building2,
-  Lock,
   AlertTriangle,
-  XCircle
+  XCircle,
+  Eye,
+  Printer,
+  X,
+  FileSpreadsheet,
+  FileText,
+  FileDown
 } from 'lucide-react';
 import api from '@/config/axios';
 import { useAuth } from '@/contexts/AuthContext';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 interface User {
   id_usuario: string;
   nome: string;
   email: string;
   perfil: 'admin' | 'user' | 'ghost';
+  base_sindical?: string;
   data_criacao: string;
   data_atualizacao: string;
   id_empresa?: string;
@@ -77,13 +84,26 @@ const UserManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
-    perfil: 'user' as 'admin' | 'user' | 'ghost'
+    perfil: 'user' as 'admin' | 'user' | 'ghost',
+    id_empresa: '',
+    base_sindical: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Estados para exportação
+  const [exportFormat, setExportFormat] = useState<'excel' | 'csv' | 'pdf'>('excel');
+  const [exportFilters, setExportFilters] = useState({
+    profile: '',
+    company: '',
+    includeInactive: false
+  });
+  const [isExporting, setIsExporting] = useState(false);
 
   // Buscar usuários
   const fetchUsers = async () => {
@@ -97,8 +117,8 @@ const UserManagement = () => {
       
       // UserManagement é acessado pelo link Sistema, então sempre usa a rota system
       // (apenas admins podem acessar)
-      const response = await api.get('/api/users/system');
-      console.log('📡 Resposta da API /api/users/system:', response.data);
+      const response = await api.get('/users/system');
+      console.log('📡 Resposta da API /users/system:', response.data);
       
       if (response.data.success) {
         setUsers(response.data.data);
@@ -132,7 +152,7 @@ const UserManagement = () => {
   // Buscar estatísticas
   const fetchStats = async () => {
     try {
-      const response = await api.get('/api/users/stats');
+      const response = await api.get('/users/stats');
       if (response.data.success) {
         setStats(response.data.data);
       }
@@ -140,6 +160,7 @@ const UserManagement = () => {
       console.error('Erro ao buscar estatísticas:', error);
     }
   };
+
 
   useEffect(() => {
     fetchUsers();
@@ -245,14 +266,14 @@ const UserManagement = () => {
     
     try {
       setIsSubmitting(true);
-      const response = await api.put(`/api/users/${selectedUser.id_usuario}`, formData);
+      const response = await api.put(`/users/${selectedUser.id_usuario}`, formData);
       
       if (response.data.success) {
         // Atualizar lista de usuários
         await fetchUsers();
         setShowEditModal(false);
         setSelectedUser(null);
-        setFormData({ nome: '', email: '', perfil: 'user' });
+        setFormData({ nome: '', email: '', perfil: 'user', id_empresa: '', base_sindical: '' });
         
         // Mostrar mensagem de sucesso
         alert('Usuário atualizado com sucesso!');
@@ -272,7 +293,7 @@ const UserManagement = () => {
     
     try {
       setIsSubmitting(true);
-      const response = await api.delete(`/api/users/${selectedUser.id_usuario}`);
+      const response = await api.delete(`/users/${selectedUser.id_usuario}`);
       
       if (response.data.success) {
         // Atualizar lista de usuários
@@ -295,7 +316,7 @@ const UserManagement = () => {
   // Reset de senha
   const handleResetPassword = async (userId: string) => {
     try {
-      const response = await api.post(`/api/users/${userId}/reset-password`);
+      const response = await api.post(`/users/${userId}/reset-password`);
       
       if (response.data.success) {
         const newPassword = response.data.newPassword;
@@ -312,17 +333,16 @@ const UserManagement = () => {
   const handleCreateUser = async () => {
     try {
       setIsSubmitting(true);
-      const response = await api.post('/api/users', formData);
+      const response = await api.post('/users', formData);
       
       if (response.data.success) {
         // Atualizar lista de usuários
         await fetchUsers();
         setShowCreateModal(false);
-        setFormData({ nome: '', email: '', perfil: 'user' });
+        setFormData({ nome: '', email: '', perfil: 'user', id_empresa: '', base_sindical: '' });
         
-        // Mostrar mensagem de sucesso com senha temporária
-        const tempPassword = response.data.tempPassword;
-        alert(`Usuário criado com sucesso! Senha temporária: ${tempPassword}`);
+        // Mostrar mensagem de sucesso
+        alert('Usuário criado com sucesso! Senha padrão: 123456');
       }
     } catch (error: any) {
       console.error('Erro ao criar usuário:', error);
@@ -330,6 +350,517 @@ const UserManagement = () => {
       alert(`Erro: ${message}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Função para abrir o modal de visualização
+  const handleViewUser = (user: User) => {
+    setSelectedUser(user);
+    setShowViewModal(true);
+  };
+
+  // Função para fechar o modal de visualização
+  const handleCloseViewModal = () => {
+    setShowViewModal(false);
+    setSelectedUser(null);
+  };
+
+  // Função para imprimir dados do usuário
+  const handlePrintUser = () => {
+    if (!selectedUser) return;
+
+    // Criar uma nova janela para impressão
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    if (!printWindow) {
+      alert('Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está desabilitado.');
+      return;
+    }
+
+    // Gerar HTML para impressão
+    const printHTML = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Dados do Usuário - ${selectedUser.nome}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 10px;
+            color: #333;
+            line-height: 1.4;
+            font-size: 12px;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #1d335b;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+          }
+          .header h1 {
+            color: #1d335b;
+            margin: 0;
+            font-size: 18px;
+          }
+          .header p {
+            color: #666;
+            margin: 3px 0 0 0;
+            font-size: 11px;
+          }
+          .summary {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+          }
+          .summary h3 {
+            margin: 0 0 8px 0;
+            color: #1d335b;
+            font-size: 14px;
+          }
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+          }
+          .summary-item {
+            background: white;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+          }
+          .summary-label {
+            font-weight: bold;
+            color: #1d335b;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+          }
+          .summary-value {
+            color: #333;
+            font-size: 11px;
+          }
+          .user-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+          }
+          .info-card {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #1d335b;
+          }
+          .info-card h3 {
+            margin: 0 0 8px 0;
+            color: #1d335b;
+            font-size: 13px;
+          }
+          .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 11px;
+          }
+          .info-item:last-child {
+            border-bottom: none;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #555;
+            text-transform: capitalize;
+            flex: 1;
+            margin-right: 8px;
+          }
+          .info-value {
+            color: #333;
+            text-align: right;
+            flex: 1;
+            word-wrap: break-word;
+            max-width: 150px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 10px;
+          }
+          @media print {
+            body { 
+              margin: 0; 
+              font-size: 11px;
+            }
+            .no-print { display: none; }
+            @page {
+              margin: 0.5in;
+              size: A4;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Dados do Usuário</h1>
+          <p>Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+        </div>
+
+        <div class="summary">
+          <h3>Resumo</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-label">Nome Completo</div>
+              <div class="summary-value">${selectedUser.nome}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">E-mail</div>
+              <div class="summary-value">${selectedUser.email}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Perfil</div>
+              <div class="summary-value">${selectedUser.perfil.toUpperCase()}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Empresa</div>
+              <div class="summary-value">${selectedUser.empresa?.nome_fantasia || selectedUser.empresa?.razao_social || '-'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="user-info">
+          <div class="info-card">
+            <h3>Informações Pessoais</h3>
+            <div class="info-item">
+              <span class="info-label">Nome Completo</span>
+              <span class="info-value">${selectedUser.nome}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">E-mail</span>
+              <span class="info-value">${selectedUser.email}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Perfil</span>
+              <span class="info-value">${selectedUser.perfil.toUpperCase()}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Base Sindical</span>
+              <span class="info-value">${selectedUser.base_sindical || '-'}</span>
+            </div>
+          </div>
+          <div class="info-card">
+            <h3>Informações da Empresa</h3>
+            <div class="info-item">
+              <span class="info-label">Razão Social</span>
+              <span class="info-value">${selectedUser.empresa?.razao_social || '-'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Nome Fantasia</span>
+              <span class="info-value">${selectedUser.empresa?.nome_fantasia || '-'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">CNPJ</span>
+              <span class="info-value">${selectedUser.empresa?.cnpj || '-'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Data de Criação</span>
+              <span class="info-value">${new Date(selectedUser.data_criacao).toLocaleDateString('pt-BR')}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Última Atualização</span>
+              <span class="info-value">${new Date(selectedUser.data_atualizacao).toLocaleDateString('pt-BR')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Evia - UniSafe - Sistema de Gestão de Dados</p>
+          <p>Este relatório foi gerado automaticamente pelo sistema</p>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            window.onafterprint = function() {
+              window.close();
+            };
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    // Escrever o HTML na nova janela
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+  };
+
+  // Função para abrir o modal de exportação
+  const handleOpenExportModal = () => {
+    setShowExportModal(true);
+  };
+
+  // Função para fechar o modal de exportação
+  const handleCloseExportModal = () => {
+    setShowExportModal(false);
+    setExportFormat('excel');
+    setExportFilters({
+      profile: '',
+      company: '',
+      includeInactive: false
+    });
+  };
+
+  // Função para filtrar usuários para exportação
+  const getFilteredUsersForExport = () => {
+    let filteredUsers = [...users];
+
+    // Aplicar filtros
+    if (exportFilters.profile) {
+      filteredUsers = filteredUsers.filter(user => user.perfil === exportFilters.profile);
+    }
+
+    if (exportFilters.company) {
+      filteredUsers = filteredUsers.filter(user => user.id_empresa === exportFilters.company);
+    }
+
+    return filteredUsers;
+  };
+
+  // Função para exportar para Excel
+  const exportToExcel = () => {
+    const filteredUsers = getFilteredUsersForExport();
+    
+    const data = filteredUsers.map(user => ({
+      'Nome': user.nome,
+      'E-mail': user.email,
+      'Perfil': getProfileName(user.perfil),
+      'Base Sindical': user.base_sindical || '-',
+      'Empresa': user.empresa?.nome_fantasia || user.empresa?.razao_social || '-',
+      'CNPJ': user.empresa?.cnpj || '-',
+      'Data de Criação': new Date(user.data_criacao).toLocaleDateString('pt-BR'),
+      'Última Atualização': new Date(user.data_atualizacao).toLocaleDateString('pt-BR')
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Usuários');
+    
+    // Ajustar largura das colunas
+    const colWidths = [
+      { wch: 25 }, // Nome
+      { wch: 30 }, // E-mail
+      { wch: 10 }, // Perfil
+      { wch: 20 }, // Base Sindical
+      { wch: 25 }, // Empresa
+      { wch: 18 }, // CNPJ
+      { wch: 15 }, // Data de Criação
+      { wch: 18 }  // Última Atualização
+    ];
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, `Evia - Unisafe - ${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // Função para exportar para CSV
+  const exportToCSV = () => {
+    const filteredUsers = getFilteredUsersForExport();
+    
+    const headers = ['Nome', 'E-mail', 'Perfil', 'Base Sindical', 'Empresa', 'CNPJ', 'Data de Criação', 'Última Atualização'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredUsers.map(user => [
+        `"${user.nome}"`,
+        `"${user.email}"`,
+        `"${getProfileName(user.perfil)}"`,
+        `"${user.base_sindical || '-'}"`,
+        `"${user.empresa?.nome_fantasia || user.empresa?.razao_social || '-'}"`,
+        `"${user.empresa?.cnpj || '-'}"`,
+        `"${new Date(user.data_criacao).toLocaleDateString('pt-BR')}"`,
+        `"${new Date(user.data_atualizacao).toLocaleDateString('pt-BR')}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Evia - Unisafe - ${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Função para exportar para PDF
+  const exportToPDF = () => {
+    try {
+      const filteredUsers = getFilteredUsersForExport();
+      
+      // Criar documento PDF em modo paisagem
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      
+      // Cabeçalho
+      doc.setFontSize(16);
+      doc.setTextColor(29, 51, 91);
+      doc.text('Relatório de Usuários', 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, 28);
+      doc.text(`Total de usuários: ${filteredUsers.length}`, 14, 34);
+
+      // Criar tabela manualmente
+      let yPosition = 50;
+      const lineHeight = 8;
+      const pageHeight = doc.internal.pageSize.height;
+      const pageWidth = doc.internal.pageSize.width;
+      
+      // Cabeçalho da tabela
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      doc.setFillColor(29, 51, 91);
+      doc.rect(14, yPosition, pageWidth - 28, lineHeight, 'F');
+      
+      // Texto do cabeçalho
+      doc.text('Nome', 15, yPosition + 5);
+      doc.text('E-mail', 50, yPosition + 5);
+      doc.text('Perfil', 100, yPosition + 5);
+      doc.text('Base Sindical', 130, yPosition + 5);
+      doc.text('Empresa', 170, yPosition + 5);
+      doc.text('CNPJ', 220, yPosition + 5);
+      doc.text('Data Criação', 260, yPosition + 5);
+      
+      yPosition += lineHeight + 8; // Adicionar mais espaçamento após o cabeçalho
+      
+      // Dados da tabela
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(7);
+      
+      // Desenhar borda externa da tabela
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.rect(14, 50, pageWidth - 28, lineHeight, 'S'); // Borda do cabeçalho
+      
+      filteredUsers.forEach((user) => {
+        // Verificar se precisa de nova página
+        if (yPosition > pageHeight - 30) {
+          doc.addPage();
+          yPosition = 20;
+          
+          // Recriar cabeçalho na nova página
+          doc.setFontSize(8);
+          doc.setTextColor(255, 255, 255);
+          doc.setFillColor(29, 51, 91);
+          doc.rect(14, yPosition, pageWidth - 28, lineHeight, 'F');
+          doc.text('Nome', 15, yPosition + 5);
+          doc.text('E-mail', 50, yPosition + 5);
+          doc.text('Perfil', 100, yPosition + 5);
+          doc.text('Base Sindical', 130, yPosition + 5);
+          doc.text('Empresa', 170, yPosition + 5);
+          doc.text('CNPJ', 220, yPosition + 5);
+          doc.text('Data Criação', 260, yPosition + 5);
+          
+          // Borda do cabeçalho na nova página
+          doc.setDrawColor(0, 0, 0);
+          doc.setLineWidth(0.5);
+          doc.rect(14, yPosition, pageWidth - 28, lineHeight, 'S');
+          
+          yPosition += lineHeight + 4;
+          doc.setFontSize(7);
+          doc.setTextColor(0, 0, 0);
+        }
+        
+        // Linha de dados
+        const nome = (user.nome || '-').substring(0, 20);
+        const email = (user.email || '-').substring(0, 25);
+        const perfil = getProfileName(user.perfil);
+        const baseSindical = (user.base_sindical || '-').substring(0, 15);
+        const empresa = (user.empresa?.nome_fantasia || user.empresa?.razao_social || '-').substring(0, 20);
+        const cnpj = (user.empresa?.cnpj || '-').substring(0, 15);
+        const dataCriacao = new Date(user.data_criacao).toLocaleDateString('pt-BR');
+        
+        // Desenhar linha horizontal da célula
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.2);
+        doc.line(14, yPosition, pageWidth - 14, yPosition);
+        
+        // Desenhar linhas verticais das colunas
+        const columnPositions = [14, 50, 100, 130, 170, 220, 260, pageWidth - 14];
+        columnPositions.forEach(x => {
+          doc.line(x, yPosition - lineHeight, x, yPosition);
+        });
+        
+        doc.text(nome, 15, yPosition - 2);
+        doc.text(email, 52, yPosition - 2);
+        doc.text(perfil, 102, yPosition - 2);
+        doc.text(baseSindical, 132, yPosition - 2);
+        doc.text(empresa, 172, yPosition - 2);
+        doc.text(cnpj, 222, yPosition - 2);
+        doc.text(dataCriacao, 262, yPosition - 2);
+        
+        yPosition += lineHeight;
+      });
+      
+      // Desenhar borda inferior da tabela
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(14, yPosition - lineHeight, pageWidth - 14, yPosition - lineHeight);
+
+      // Adicionar rodapé em todas as páginas
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text('Evia - UniSafe - Sistema de Gestão de Dados', 14, pageHeight - 10);
+        doc.text(`Página ${i} de ${pageCount}`, pageWidth - 30, pageHeight - 10);
+      }
+
+      // Salvar o arquivo
+      doc.save(`Evia - Unisafe - ${new Date().toISOString().split('T')[0]}.pdf`);
+      
+    } catch (error) {
+      console.error('Erro na exportação PDF:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      throw new Error('Erro ao gerar PDF: ' + errorMessage);
+    }
+  };
+
+  // Função principal de exportação
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      
+      switch (exportFormat) {
+        case 'excel':
+          exportToExcel();
+          break;
+        case 'csv':
+          exportToCSV();
+          break;
+        case 'pdf':
+          exportToPDF();
+          break;
+        default:
+          exportToExcel();
+      }
+      
+      // Fechar modal após exportação
+      setTimeout(() => {
+        handleCloseExportModal();
+        alert('Exportação realizada com sucesso!');
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      alert('Erro ao realizar a exportação. Tente novamente.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -602,19 +1133,22 @@ const UserManagement = () => {
 
         {/* Header da Tabela */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex justify-between items-center">
+          <div className="space-y-4">
+            {/* Título e Descrição */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
                 Usuários de Todas as Empresas (Admin)
               </h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 mt-1">
                 Mostrando {currentUsers.length} de {filteredUsers.length} usuários de todas as empresas do sistema. Acesso restrito a administradores.
               </p>
             </div>
+            
+            {/* Botões de Ação */}
             <div className="flex space-x-2">
               <button
                 onClick={() => {
-                  setFormData({ nome: '', email: '', perfil: 'user' });
+                  setFormData({ nome: '', email: '', perfil: 'user', id_empresa: '', base_sindical: '' });
                   setShowCreateModal(true);
                 }}
                 className="px-4 py-2 text-white rounded-md transition-colors h-10"
@@ -626,8 +1160,8 @@ const UserManagement = () => {
                 Novo Usuário
               </button>
               <button
-                onClick={() => {/* TODO: Implementar exportação */}}
-                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors h-10"
+                onClick={handleOpenExportModal}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors h-10"
               >
                 <Download className="h-4 w-4 inline mr-2" />
                 Exportar
@@ -723,12 +1257,12 @@ const UserManagement = () => {
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('data_criacao')}
+                      onClick={() => handleSort('base_sindical')}
                     >
                       <div className="flex items-center justify-between">
-                        <span>Data de Criação</span>
+                        <span>Base Sindical</span>
                         <div className="flex flex-col ml-2">
-                          {sortColumn === 'data_criacao' ? (
+                          {sortColumn === 'base_sindical' ? (
                             sortDirection === 'asc' ? (
                               <ChevronUp className="h-3 w-3 text-red-600" />
                             ) : (
@@ -759,7 +1293,7 @@ const UserManagement = () => {
                           ) : (
                             <div className="flex flex-col">
                               <ChevronUp className="h-3 w-3 text-gray-400" />
-                              <ChevronDown className="h-3 w-3 text-gray-400" />
+                              <ChevronDown className="h-3 w-3 text-red-600" />
                             </div>
                           )}
                         </div>
@@ -801,9 +1335,15 @@ const UserManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                          <Shield className="h-4 w-4 text-gray-400 mr-2" />
                           <span className="text-sm text-gray-900">
-                            {new Date(user.data_criacao).toLocaleDateString('pt-BR')}
+                            {user.base_sindical ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {user.base_sindical}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">Não definida</span>
+                            )}
                           </span>
                         </div>
                       </td>
@@ -824,14 +1364,10 @@ const UserManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
-                                                     <button 
-                             className="text-blue-600 hover:text-blue-900"
-                             title="Visualizar detalhes"
-                             onClick={() => {
-                               setSelectedUser(user);
-                               // TODO: Implementar modal de visualização
-                               console.log('Visualizar usuário:', user);
-                             }}
+                           <button 
+                             onClick={() => handleViewUser(user)}
+                             className="text-blue-600 hover:text-blue-900 transition-colors"
+                             title="Visualizar usuário"
                            >
                              <Eye className="h-4 w-4" />
                            </button>
@@ -843,7 +1379,9 @@ const UserManagement = () => {
                                setFormData({
                                  nome: user.nome,
                                  email: user.email,
-                                 perfil: user.perfil
+                                 perfil: user.perfil,
+                                 id_empresa: user.id_empresa || '',
+                                 base_sindical: user.base_sindical || ''
                                });
                                setShowEditModal(true);
                              }}
@@ -953,7 +1491,7 @@ const UserManagement = () => {
         {/* Modal de Criação */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white" style={{ borderColor: '#c9504c' }}>
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">
@@ -962,7 +1500,7 @@ const UserManagement = () => {
                   <button
                     onClick={() => {
                       setShowCreateModal(false);
-                      setFormData({ nome: '', email: '', perfil: 'user' });
+                      setFormData({ nome: '', email: '', perfil: 'user', id_empresa: '', base_sindical: '' });
                     }}
                     className="text-gray-400 hover:text-gray-600"
                   >
@@ -996,6 +1534,10 @@ const UserManagement = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="e-mail@exemplo.com"
                       required
+                      autoComplete="email"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                   </div>
                   
@@ -1009,16 +1551,61 @@ const UserManagement = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      <option value="user">Usuário</option>
-                      <option value="admin">Administrador</option>
-                      <option value="ghost">Fantasma</option>
+                      <option value="admin">Admin</option>
+                      <option value="user">User</option>
+                      <option value="ghost">Ghost</option>
                     </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Empresa *
+                    </label>
+                    <select
+                      value={formData.id_empresa}
+                      onChange={(e) => setFormData(prev => ({ ...prev, id_empresa: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Selecione uma empresa</option>
+                      {Array.from(new Set(users.map(u => u.empresa?.cnpj).filter(Boolean)))
+                        .map(cnpj => {
+                          const userItem = users.find(u => u.empresa?.cnpj === cnpj);
+                          return {
+                            cnpj,
+                            id_empresa: userItem?.id_empresa,
+                            nomeFantasia: userItem?.empresa?.nome_fantasia || userItem?.empresa?.razao_social || ''
+                          };
+                        })
+                        .filter(item => item.nomeFantasia && item.id_empresa)
+                        .sort((a, b) => a.nomeFantasia.localeCompare(b.nomeFantasia, 'pt-BR'))
+                        .map(({ cnpj, id_empresa, nomeFantasia }) => (
+                          <option key={cnpj} value={id_empresa}>
+                            {nomeFantasia}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Base Sindical
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.base_sindical}
+                      onChange={(e) => setFormData(prev => ({ ...prev, base_sindical: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Digite a base sindical"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Digite o nome da base sindical para este usuário
+                    </p>
                   </div>
                   
                   <div className="bg-blue-50 p-3 rounded-md">
                     <p className="text-sm text-blue-700">
-                      <strong>Nota:</strong> Uma senha temporária será gerada automaticamente e exibida após a criação.
-
+                      <strong>Nota:</strong> A senha padrão para novos usuários é "123456". O usuário poderá alterar esta senha após o primeiro login.
                     </p>
                   </div>
                 </div>
@@ -1027,20 +1614,31 @@ const UserManagement = () => {
                   <button
                     onClick={() => {
                       setShowCreateModal(false);
-                      setFormData({ nome: '', email: '', perfil: 'user' });
+                      setFormData({ nome: '', email: '', perfil: 'user', id_empresa: '', base_sindical: '' });
                     }}
-                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 font-medium"
+                    className="px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                    style={{ 
+                      backgroundColor: '#ffc9c0',
+                      color: '#1d335b',
+                      border: 'none'
+                    }}
+                    onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#ffd1c8')}
+                    onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#ffc9c0')}
                     disabled={isSubmitting}
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={handleCreateUser}
-                    disabled={isSubmitting || !formData.nome || !formData.email}
-                    className="px-4 py-2 text-sm text-white font-medium rounded-md transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#1d335b' }}
-                    onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#2a4a7a')}
-                    onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#1d335b')}
+                    disabled={isSubmitting || !formData.nome || !formData.email || !formData.id_empresa}
+                    className="px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                    style={{ 
+                      backgroundColor: '#c9504c',
+                      color: 'white',
+                      border: 'none'
+                    }}
+                    onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#d65a56')}
+                    onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#c9504c')}
                   >
                     {isSubmitting ? 'Criando...' : 'Criar Usuário'}
                   </button>
@@ -1063,7 +1661,7 @@ const UserManagement = () => {
                     onClick={() => {
                       setShowEditModal(false);
                       setSelectedUser(null);
-                      setFormData({ nome: '', email: '', perfil: 'user' });
+                      setFormData({ nome: '', email: '', perfil: 'user', id_empresa: '', base_sindical: '' });
                     }}
                     className="text-gray-400 hover:text-gray-600"
                   >
@@ -1097,6 +1695,10 @@ const UserManagement = () => {
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
                       placeholder="e-mail@exemplo.com"
+                      autoComplete="email"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                       onFocus={(e) => e.currentTarget.style.borderColor = '#c9504c'}
                       onBlur={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
                     />
@@ -1117,6 +1719,24 @@ const UserManagement = () => {
                       <option value="user">User</option>
                       <option value="ghost">Ghost</option>
                     </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Base Sindical
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.base_sindical}
+                      onChange={(e) => setFormData(prev => ({ ...prev, base_sindical: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                      placeholder="Digite a base sindical"
+                      onFocus={(e) => e.currentTarget.style.borderColor = '#c9504c'}
+                      onBlur={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Digite o nome da base sindical para este usuário
+                    </p>
                   </div>
                 </div>
                 
@@ -1147,7 +1767,7 @@ const UserManagement = () => {
                     onClick={() => {
                       setShowEditModal(false);
                       setSelectedUser(null);
-                      setFormData({ nome: '', email: '', perfil: 'user' });
+                      setFormData({ nome: '', email: '', perfil: 'user', id_empresa: '', base_sindical: '' });
                     }}
                     className="px-4 py-4 text-sm text-white font-medium rounded-md transition-colors"
                     style={{ 
@@ -1162,6 +1782,186 @@ const UserManagement = () => {
                     Cancelar
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Visualização do Usuário */}
+        {showViewModal && selectedUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              {/* Header do Modal */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 rounded-full" style={{ backgroundColor: '#1d335b' }}>
+                    <User className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Dados do Usuário
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      Visualização completa das informações
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handlePrintUser}
+                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white rounded-md transition-colors"
+                    style={{ backgroundColor: '#1d335b' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2a4a7a'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1d335b'}
+                    title="Imprimir dados do usuário"
+                  >
+                    <Printer className="h-4 w-4" />
+                    <span>Imprimir</span>
+                  </button>
+                  <button
+                    onClick={handleCloseViewModal}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Fechar"
+                  >
+                    <X className="h-5 w-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Conteúdo do Modal */}
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Informações Pessoais */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <User className="h-5 w-5" style={{ color: '#1d335b' }} />
+                      <h3 className="text-lg font-medium text-gray-900">Informações Pessoais</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm font-medium text-gray-600">Nome Completo</span>
+                        <span className="text-sm text-gray-900 text-right max-w-xs truncate" title={selectedUser.nome}>
+                          {selectedUser.nome}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm font-medium text-gray-600">E-mail</span>
+                        <span className="text-sm text-gray-900 text-right max-w-xs truncate" title={selectedUser.email}>
+                          {selectedUser.email}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm font-medium text-gray-600">Perfil</span>
+                        <span className="text-sm text-gray-900 text-right max-w-xs truncate">
+                          {selectedUser.perfil.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm font-medium text-gray-600">Base Sindical</span>
+                        <span className="text-sm text-gray-900 text-right max-w-xs truncate" title={selectedUser.base_sindical || '-'}>
+                          {selectedUser.base_sindical || '-'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm font-medium text-gray-600">Data de Criação</span>
+                        <span className="text-sm text-gray-900 text-right max-w-xs truncate" title={new Date(selectedUser.data_criacao).toLocaleDateString('pt-BR')}>
+                          {new Date(selectedUser.data_criacao).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-sm font-medium text-gray-600">Última Atualização</span>
+                        <span className="text-sm text-gray-900 text-right max-w-xs truncate" title={new Date(selectedUser.data_atualizacao).toLocaleDateString('pt-BR')}>
+                          {new Date(selectedUser.data_atualizacao).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Resumo Visual */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Building2 className="h-5 w-5" style={{ color: '#1d335b' }} />
+                      <h3 className="text-lg font-medium text-gray-900">Resumo</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-4">
+                      {/* Card de Informações Principais */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-blue-100 rounded-full">
+                            <User className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">Nome Completo</h4>
+                            <p className="text-sm text-gray-600">
+                              {selectedUser.nome}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card de E-mail */}
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-green-100 rounded-full">
+                            <Mail className="h-5 w-5 text-green-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">E-mail</h4>
+                            <p className="text-sm text-gray-600">
+                              {selectedUser.email}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card de Perfil */}
+                      <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-4 rounded-lg border border-purple-200">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-purple-100 rounded-full">
+                            <Shield className="h-5 w-5 text-purple-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">Perfil</h4>
+                            <p className="text-sm text-gray-600">
+                              {selectedUser.perfil.toUpperCase()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card de Empresa */}
+                      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-lg border border-indigo-200">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-indigo-100 rounded-full">
+                            <Building2 className="h-5 w-5 text-indigo-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">Empresa</h4>
+                            <p className="text-sm text-gray-600">
+                              {selectedUser.empresa?.nome_fantasia || selectedUser.empresa?.razao_social || '-'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer do Modal */}
+              <div className="flex justify-end p-6 border-t border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+                <button
+                  onClick={handleCloseViewModal}
+                  className="px-6 py-2 text-sm font-medium text-white rounded-md transition-colors"
+                  style={{ backgroundColor: '#1d335b' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2a4a7a'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1d335b'}
+                >
+                  Fechar
+                </button>
               </div>
             </div>
           </div>
@@ -1220,7 +2020,14 @@ const UserManagement = () => {
                       setShowDeleteModal(false);
                       setSelectedUser(null);
                     }}
-                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 font-medium"
+                    className="px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                    style={{ 
+                      backgroundColor: '#ffc9c0',
+                      color: '#1d335b',
+                      border: 'none'
+                    }}
+                    onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#ffd1c8')}
+                    onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#ffc9c0')}
                     disabled={isSubmitting}
                   >
                     Cancelar
@@ -1236,6 +2043,177 @@ const UserManagement = () => {
                     {isSubmitting ? 'Excluindo...' : 'Confirmar Exclusão'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Exportação */}
+        {showExportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+              {/* Header do Modal */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    Exportar Dados de Usuários
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Selecione o formato e configure os filtros para exportação
+                  </p>
+                </div>
+                <button
+                  onClick={handleCloseExportModal}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Conteúdo do Modal */}
+              <div className="p-6 space-y-6">
+                {/* Seleção de Formato */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Formato de Exportação
+                  </label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <button
+                      onClick={() => setExportFormat('excel')}
+                      className={`p-4 border-2 rounded-lg transition-all ${
+                        exportFormat === 'excel'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <FileSpreadsheet className="h-8 w-8 mx-auto mb-2" />
+                      <div className="text-sm font-medium">Excel</div>
+                      <div className="text-xs text-gray-500">.xlsx</div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setExportFormat('csv')}
+                      className={`p-4 border-2 rounded-lg transition-all ${
+                        exportFormat === 'csv'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <FileText className="h-8 w-8 mx-auto mb-2" />
+                      <div className="text-sm font-medium">CSV</div>
+                      <div className="text-xs text-gray-500">.csv</div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setExportFormat('pdf')}
+                      className={`p-4 border-2 rounded-lg transition-all ${
+                        exportFormat === 'pdf'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <FileDown className="h-8 w-8 mx-auto mb-2" />
+                      <div className="text-sm font-medium">PDF</div>
+                      <div className="text-xs text-gray-500">.pdf</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filtros de Exportação */}
+                <div className="border-t pt-6">
+                  <h4 className="text-sm font-medium text-gray-700 mb-4">Filtros de Exportação</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Filtro por Perfil */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Perfil
+                      </label>
+                      <select
+                        value={exportFilters.profile}
+                        onChange={(e) => setExportFilters(prev => ({ ...prev, profile: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Todos os perfis</option>
+                        <option value="admin">Admin</option>
+                        <option value="user">User</option>
+                        <option value="ghost">Ghost</option>
+                      </select>
+                    </div>
+
+                    {/* Filtro por Empresa */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Empresa
+                      </label>
+                      <select
+                        value={exportFilters.company}
+                        onChange={(e) => setExportFilters(prev => ({ ...prev, company: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Todas as empresas</option>
+                        {Array.from(new Set(users.map(user => user.empresa?.cnpj).filter(Boolean)))
+                          .map(cnpj => {
+                            const userItem = users.find(u => u.empresa?.cnpj === cnpj);
+                            return {
+                              cnpj,
+                              id_empresa: userItem?.id_empresa,
+                              nomeFantasia: userItem?.empresa?.nome_fantasia || userItem?.empresa?.razao_social || ''
+                            };
+                          })
+                          .filter(item => item.nomeFantasia && item.id_empresa)
+                          .map(item => (
+                            <option key={item.id_empresa} value={item.id_empresa}>
+                              {item.nomeFantasia}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Informações da Exportação */}
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <div className="text-blue-600">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <div className="text-sm text-blue-800">
+                        <strong>Total de usuários a exportar:</strong> {getFilteredUsersForExport().length}
+                      </div>
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">
+                      A exportação incluirá: Nome, E-mail, Perfil, Base Sindical, Empresa, CNPJ, Data de Criação e Última Atualização
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer do Modal */}
+              <div className="flex justify-end space-x-3 p-6 border-t border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+                <button
+                  onClick={handleCloseExportModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="px-6 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50"
+                  style={{ backgroundColor: '#1d335b' }}
+                >
+                  {isExporting ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Exportando...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <Download className="h-4 w-4" />
+                      <span>Exportar</span>
+                    </div>
+                  )}
+                </button>
               </div>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, Shield, Save, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 
+
 const Profile = () => {
   const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -69,7 +70,7 @@ const Profile = () => {
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/auth/profile', {
+      const response = await fetch('http://localhost:3000/api/auth/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -198,6 +199,10 @@ const Profile = () => {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       disabled={!isEditing}
+                      autoComplete="email"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c9504c] focus:border-[#c9504c] disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
@@ -221,6 +226,7 @@ const Profile = () => {
                             onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
                             className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c9504c] focus:border-[#c9504c]"
                             placeholder="Digite sua senha atual"
+                            autoComplete="current-password"
                           />
                           <button
                             type="button"
@@ -243,6 +249,7 @@ const Profile = () => {
                             onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
                             className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c9504c] focus:border-[#c9504c]"
                             placeholder="Mínimo 6 caracteres"
+                            autoComplete="new-password"
                           />
                           <button
                             type="button"
@@ -265,6 +272,7 @@ const Profile = () => {
                             onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                             className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#c9504c] focus:border-[#c9504c]"
                             placeholder="Confirme a nova senha"
+                            autoComplete="new-password"
                           />
                           <button
                             type="button"
@@ -376,6 +384,8 @@ const Profile = () => {
             </div>
           </div>
         </div>
+
+
       </div>
     </div>
   );

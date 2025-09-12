@@ -28,9 +28,9 @@ export const securityConfig = {
 
   // File Upload
   upload: {
-    maxSize: parseInt(process.env.MAX_FILE_SIZE || '10485760'), // 10MB
+    maxSize: parseInt(process.env.MAX_FILE_SIZE || '52428800'), // 50MB por padrão
     allowedTypes: (process.env.ALLOWED_FILE_TYPES || 'xlsx,xls,csv').split(','),
-    uploadDir: process.env.UPLOAD_DIR || './uploads'
+    // Removido uploadDir pois não armazenamos mais arquivos físicos
   },
 
   // Logging

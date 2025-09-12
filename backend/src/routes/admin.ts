@@ -254,7 +254,7 @@ router.get('/test-companies', async (req: any, res: any) => {
     return res.status(500).json({
       success: false,
       message: 'Erro ao contar empresas',
-      error: error.message
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     });
   }
 });
@@ -310,7 +310,7 @@ router.get('/test-users', async (req: any, res: any) => {
     return res.status(500).json({
       success: false,
       message: 'Erro ao contar usuários',
-      error: error.message
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     });
   }
 });

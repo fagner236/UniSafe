@@ -1,17 +1,89 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
+import DashboardLoading from '@/components/DashboardLoading';
 import { 
   Users, 
-  FileText, 
   DollarSign,
-  Gift
+  Gift,
+  Calendar,
+  ChevronDown
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 const Dashboard = () => {
-  const { processedData, hasData } = useData();
+  const { 
+    processedData, 
+    hasData, 
+    loadBaseDadosData, 
+    dataSource,
+    isLoadingBaseDados,
+    loadingProgress,
+    currentLoadingStep,
+    totalLoadingSteps
+  } = useData();
+  const { user } = useAuth();
+  
+  // Estados para filtros das tabelas
+  const [seFilter, setSeFilter] = useState('');
+  const [municipalityFilter, setMunicipalityFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
+  
+  // Estados para seletor de mês
+  const [showMonthSelector, setShowMonthSelector] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState('');
+
+  // Função para verificar se o usuário é admin da empresa dona do sistema
+  const isSystemOwnerAdmin = () => {
+    return user?.perfil === 'admin' && user?.empresa?.cnpj === '41.115.030/0001-20';
+  };
+
+  // Função para carregar dados da tabela base_dados
+  const handleLoadBaseDados = async () => {
+    try {
+      await loadBaseDadosData();
+    } catch (error) {
+      console.error('Erro ao carregar dados da base_dados:', error);
+    }
+  };
+
+  // Efeito para definir o mês selecionado quando os dados forem carregados
+  useEffect(() => {
+    if (processedData?.selectedMonthYear && !selectedMonth) {
+      setSelectedMonth(processedData.selectedMonthYear);
+    }
+  }, [processedData?.selectedMonthYear, selectedMonth]);
+
+  // Função para atualizar dados quando o mês for selecionado
+  const handleMonthChange = async (monthYear: string) => {
+    try {
+      setSelectedMonth(monthYear);
+      setShowMonthSelector(false);
+      await loadBaseDadosData(monthYear);
+    } catch (error) {
+      console.error('Erro ao carregar dados do mês selecionado:', error);
+    }
+  };
+
+  // Função para formatar o mês para exibição
+  const formatMonthDisplay = (monthYear: string) => {
+    const [month, year] = monthYear.split('/');
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return `${monthNames[parseInt(month) - 1]} de ${year}`;
+  };
+
+
 
   const formatCurrency = (value: number) => {
+    // Verifica se o valor é válido (não é NaN, Infinity ou undefined)
+    if (!value || isNaN(value) || !isFinite(value)) {
+      return 'R$ 0,00';
+    }
+    
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
@@ -29,66 +101,39 @@ const Dashboard = () => {
     return `${day}/${month}/${year} às ${hour}h${minute}`;
   };
 
-  // Função para calcular estatísticas por empresa
-  const getCompanyStats = () => {
-    if (!processedData) return [];
-    
-    const companyStats = processedData.employees.reduce((acc, emp) => {
-      if (!emp.company) return acc;
-      
-      if (!acc[emp.company]) {
-        acc[emp.company] = {
-          name: emp.company,
-          count: 0,
-          totalSalary: 0,
-          departments: new Set()
-        };
-      }
-      
-      acc[emp.company].count++;
-      acc[emp.company].totalSalary += emp.salary || 0;
-      if (emp.department) {
-        acc[emp.company].departments.add(emp.department);
-      }
-      
-      return acc;
-    }, {} as Record<string, { name: string; count: number; totalSalary: number; departments: Set<string> }>);
-    
-    return Object.values(companyStats).map(stat => ({
-      ...stat,
-      averageSalary: stat.totalSalary / stat.count,
-      departmentCount: stat.departments.size
-    }));
-  };
+  // Carregar dados automaticamente quando a página for carregada
+  useEffect(() => {
+    if (user && !hasData) {
+      // Primeiro tentar carregar da tabela base_dados
+      handleLoadBaseDados();
+    }
+  }, [user, hasData]);
 
-  // Função para calcular estatísticas por departamento
-  const getDepartmentStats = () => {
-    if (!processedData) return [];
-    
-    const deptStats = processedData.employees.reduce((acc, emp) => {
-      if (!emp.department) return acc;
-      
-      if (!acc[emp.department]) {
-        acc[emp.department] = {
-          name: emp.department,
-          count: 0,
-          totalSalary: 0
-        };
-      }
-      
-      acc[emp.department].count++;
-      acc[emp.department].totalSalary += emp.salary || 0;
-      
-      return acc;
-    }, {} as Record<string, { name: string; count: number; totalSalary: number }>);
-    
-    return Object.values(deptStats).map(stat => ({
-      ...stat,
-      averageSalary: stat.totalSalary / stat.count
-    }));
-  };
+  // Definir o mês selecionado quando os dados forem carregados
+  useEffect(() => {
+    if (processedData?.selectedMonthYear) {
+      setSelectedMonth(processedData.selectedMonthYear);
+    }
+  }, [processedData]);
 
-  // Função para calcular estatísticas por SE (Sindicato/Entidade)
+  // Fechar seletor de mês quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showMonthSelector) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.month-selector')) {
+          setShowMonthSelector(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMonthSelector]);
+
+
+
+  // Função para calcular estatísticas por SE e Base Sindical
   const getSEStats = () => {
     if (!processedData) return [];
     
@@ -99,9 +144,23 @@ const Dashboard = () => {
       col.toLowerCase().includes('entidade')
     );
     
+    // Procura pela coluna BASE SINDICAL
+    const baseSindicalColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('base') && col.toLowerCase().includes('sindical') ||
+      col.toLowerCase().includes('base') && col.toLowerCase().includes('sindicato') ||
+      col.toLowerCase().includes('base')
+    );
+    
     // Procura pela coluna VALOR MENSALIDADE
     const mensalidadeColumn = processedData.columns.find(col => 
       col.toLowerCase().includes('valor') && col.toLowerCase().includes('mensalidade')
+    );
+    
+    // Procura pela coluna FILIADOS
+    const filiadosColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiados') || 
+      col.toLowerCase().includes('filiado') ||
+      col.toLowerCase().includes('situacao')
     );
     
     if (!seColumn) {
@@ -112,24 +171,47 @@ const Dashboard = () => {
       // Acessa o valor da coluna SE dinamicamente
       const seValue = (emp as any)[seColumn] || 'Não informado';
       
+      // Acessa o valor da base sindical dinamicamente
+      const baseSindicalValue = baseSindicalColumn ? (emp as any)[baseSindicalColumn] : '';
+      const baseSindical = baseSindicalValue && String(baseSindicalValue).trim() !== '' ? String(baseSindicalValue) : 'Não informado';
+      
+      // Cria uma chave composta: SE + Base Sindical
+      const key = `${seValue}|${baseSindical}`;
+      
       // Acessa o valor da mensalidade dinamicamente
       const mensalidadeValue = mensalidadeColumn ? (emp as any)[mensalidadeColumn] : 0;
       const mensalidade = typeof mensalidadeValue === 'number' ? mensalidadeValue : 
                          typeof mensalidadeValue === 'string' ? parseFloat(mensalidadeValue.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0 : 0;
       
-      if (!acc[seValue]) {
-        acc[seValue] = {
+      // Verifica se é filiado (tem valor na coluna filiados)
+      const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                       String((emp as any)[filiadosColumn]).trim() !== '' && 
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+      
+      if (!acc[key]) {
+        acc[key] = {
           name: seValue,
+          baseSindical: baseSindical,
           count: 0,
-          totalMensalidade: 0
+          totalMensalidade: 0,
+          filiados: 0,
+          naoFiliados: 0
         };
       }
       
-      acc[seValue].count++;
-      acc[seValue].totalMensalidade += mensalidade;
+      acc[key].count++;
+      acc[key].totalMensalidade += mensalidade;
+      
+      if (isFiliado) {
+        acc[key].filiados++;
+      } else {
+        acc[key].naoFiliados++;
+      }
       
       return acc;
-    }, {} as Record<string, { name: string; count: number; totalMensalidade: number }>);
+    }, {} as Record<string, { name: string; baseSindical: string; count: number; totalMensalidade: number; filiados: number; naoFiliados: number }>);
     
     // Retorna as estatísticas ordenadas por quantidade de efetivo (decrescente)
     return Object.values(seStats)
@@ -138,6 +220,221 @@ const Dashboard = () => {
         averageMensalidade: stat.totalMensalidade / stat.count
       }))
       .sort((a, b) => b.count - a.count);
+  };
+
+  // Função para filtrar dados da tabela SE (Busca Rápida)
+  const getFilteredSEStats = () => {
+    if (!processedData || !seFilter.trim()) return getSEStats().slice(0, 5);
+    
+    const filterLower = seFilter.toLowerCase().trim();
+    
+    // Busca direta nos dados em memória (método rápido)
+    const seColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('se') || 
+      col.toLowerCase().includes('sindicato') || 
+      col.toLowerCase().includes('entidade')
+    );
+    
+    const baseSindicalColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('base') && col.toLowerCase().includes('sindical') ||
+      col.toLowerCase().includes('base') && col.toLowerCase().includes('sindicato') ||
+      col.toLowerCase().includes('base')
+    );
+    
+    if (!seColumn && !baseSindicalColumn) return getSEStats().slice(0, 5);
+    
+    // Filtra diretamente nos dados
+    const filteredData = processedData.employees.filter(emp => {
+      const seValue = seColumn ? String((emp as any)[seColumn] || '').toLowerCase() : '';
+      const baseValue = baseSindicalColumn ? String((emp as any)[baseSindicalColumn] || '').toLowerCase() : '';
+      
+      return seValue.includes(filterLower) || baseValue.includes(filterLower);
+    });
+    
+    // Agrupa os dados filtrados rapidamente
+    const seStats = new Map();
+    
+    filteredData.forEach(emp => {
+      const seValue = seColumn ? (emp as any)[seColumn] || 'Não informado' : 'Não informado';
+      const baseValue = baseSindicalColumn ? (emp as any)[baseSindicalColumn] || 'Não informado' : 'Não informado';
+      const key = `${seValue}|${baseValue}`;
+      
+      if (!seStats.has(key)) {
+        seStats.set(key, {
+          name: seValue,
+          baseSindical: baseValue,
+          count: 0,
+          totalMensalidade: 0,
+          filiados: 0,
+          naoFiliados: 0
+        });
+      }
+      
+      const stat = seStats.get(key);
+      stat.count++;
+      
+      // Calcula mensalidade rapidamente
+      const mensalidadeColumn = processedData.columns.find(col => 
+        col.toLowerCase().includes('valor') && col.toLowerCase().includes('mensalidade')
+      );
+      
+      if (mensalidadeColumn) {
+        const mensalidadeValue = (emp as any)[mensalidadeColumn];
+        if (mensalidadeValue !== null && mensalidadeValue !== undefined && mensalidadeValue !== '') {
+          let valorNumerico = mensalidadeValue;
+          if (typeof mensalidadeValue === 'string') {
+            const valorLimpo = mensalidadeValue.replace(/[^\d,.-]/g, '').replace(',', '.');
+            valorNumerico = parseFloat(valorLimpo);
+          }
+          
+          if (valorNumerico && typeof valorNumerico === 'number' && !isNaN(valorNumerico)) {
+            stat.totalMensalidade += valorNumerico;
+          }
+        }
+      }
+      
+      // Verifica filiação rapidamente
+      const filiadosColumn = processedData.columns.find(col => 
+        col.toLowerCase().includes('filiados') || 
+        col.toLowerCase().includes('filiado') ||
+        col.toLowerCase().includes('situacao')
+      );
+      
+      if (filiadosColumn) {
+        const filiadoValue = (emp as any)[filiadosColumn];
+        const isFiliado = filiadoValue && 
+                         String(filiadoValue).trim() !== '' && 
+                         String(filiadoValue).toLowerCase() !== 'null' &&
+                         String(filiadoValue).toLowerCase() !== 'undefined' &&
+                         String(filiadoValue).toLowerCase() !== 'n/a';
+        
+        if (isFiliado) {
+          stat.filiados++;
+        } else {
+          stat.naoFiliados++;
+        }
+      }
+    });
+    
+    return Array.from(seStats.values())
+      .map(stat => ({
+        ...stat,
+        averageMensalidade: stat.count > 0 ? stat.totalMensalidade / stat.count : 0
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  // Função para filtrar dados da tabela Municípios (Busca Rápida)
+  const getFilteredMunicipalityStats = () => {
+    if (!processedData || !municipalityFilter.trim()) return getMunicipalityStats().slice(0, 5);
+    
+    const filterLower = municipalityFilter.toLowerCase().trim();
+    
+    // Busca direta nos dados em memória (método rápido)
+    const municipalityColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('município') || 
+      col.toLowerCase().includes('municipio') ||
+      col.toLowerCase().includes('cidade') ||
+      col.toLowerCase().includes('city') ||
+      col.toLowerCase().includes('local') ||
+      col.toLowerCase().includes('place')
+    );
+    
+    if (!municipalityColumn) return getMunicipalityStats().slice(0, 5);
+    
+    // Filtra diretamente nos dados
+    const filteredData = processedData.employees.filter(emp => {
+      const municipalityValue = String((emp as any)[municipalityColumn] || '').toLowerCase();
+      return municipalityValue.includes(filterLower);
+    });
+    
+    // Agrupa os dados filtrados rapidamente
+    const municipalityStats = new Map();
+    
+    filteredData.forEach(emp => {
+      const municipalityValue = (emp as any)[municipalityColumn] || 'Não informado';
+      
+      if (!municipalityStats.has(municipalityValue)) {
+        municipalityStats.set(municipalityValue, {
+          name: municipalityValue,
+          count: 0,
+          totalMensalidade: 0,
+          filiados: 0,
+          naoFiliados: 0
+        });
+      }
+      
+      const stat = municipalityStats.get(municipalityValue);
+      stat.count++;
+      
+      // Calcula mensalidade rapidamente
+      const mensalidadeColumn = processedData.columns.find(col => 
+        col.toLowerCase().includes('valor') && col.toLowerCase().includes('mensalidade')
+      );
+      
+      if (mensalidadeColumn) {
+        const mensalidadeValue = (emp as any)[mensalidadeColumn];
+        if (mensalidadeValue !== null && mensalidadeValue !== undefined && mensalidadeValue !== '') {
+          let valorNumerico = mensalidadeValue;
+          if (typeof mensalidadeValue === 'string') {
+            const valorLimpo = mensalidadeValue.replace(/[^\d,./-]/g, '').replace(',', '.');
+            valorNumerico = parseFloat(valorLimpo);
+          }
+          
+          if (valorNumerico && typeof valorNumerico === 'number' && !isNaN(valorNumerico)) {
+            stat.totalMensalidade += valorNumerico;
+          }
+        }
+      }
+      
+      // Verifica filiação rapidamente
+      const filiadosColumn = processedData.columns.find(col => 
+        col.toLowerCase().includes('filiados') || 
+        col.toLowerCase().includes('filiado') ||
+        col.toLowerCase().includes('situacao')
+      );
+      
+      if (filiadosColumn) {
+        const filiadoValue = (emp as any)[filiadosColumn];
+        const isFiliado = filiadoValue && 
+                         String(filiadoValue).trim() !== '' && 
+                         String(filiadoValue).toLowerCase() !== 'null' &&
+                         String(filiadoValue).toLowerCase() !== 'undefined' &&
+                         String(filiadoValue).toLowerCase() !== 'n/a';
+        
+        if (isFiliado) {
+          stat.filiados++;
+        } else {
+          stat.naoFiliados++;
+        }
+      }
+        });
+        
+    return Array.from(municipalityStats.values())
+      .map(stat => ({
+        ...stat,
+        averageMensalidade: stat.count > 0 ? stat.totalMensalidade / stat.count : 0
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+
+
+
+
+
+  const clearFilters = () => {
+    setSeFilter('');
+    setMunicipalityFilter('');
+    setLocationFilter('');
+  };
+
+  const clearMunicipalityFilters = () => {
+    setMunicipalityFilter('');
+  };
+
+  const clearLocationFilters = () => {
+    setLocationFilter('');
   };
 
   // Função para calcular estatísticas por Municípios
@@ -159,6 +456,13 @@ const Dashboard = () => {
       col.toLowerCase().includes('valor') && col.toLowerCase().includes('mensalidade')
     );
     
+    // Procura pela coluna FILIADOS
+    const filiadosColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiados') || 
+      col.toLowerCase().includes('filiado') ||
+      col.toLowerCase().includes('situacao')
+    );
+    
     if (!municipalityColumn) {
       return [];
     }
@@ -172,19 +476,34 @@ const Dashboard = () => {
       const mensalidade = typeof mensalidadeValue === 'number' ? mensalidadeValue : 
                          typeof mensalidadeValue === 'string' ? parseFloat(mensalidadeValue.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0 : 0;
       
+      // Verifica se é filiado (tem valor na coluna filiados)
+      const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                       String((emp as any)[filiadosColumn]).trim() !== '' && 
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+      
       if (!acc[municipalityValue]) {
         acc[municipalityValue] = {
           name: municipalityValue,
           count: 0,
-          totalMensalidade: 0
+          totalMensalidade: 0,
+          filiados: 0,
+          naoFiliados: 0
         };
       }
       
       acc[municipalityValue].count++;
       acc[municipalityValue].totalMensalidade += mensalidade;
       
+      if (isFiliado) {
+        acc[municipalityValue].filiados++;
+      } else {
+        acc[municipalityValue].naoFiliados++;
+      }
+      
       return acc;
-    }, {} as Record<string, { name: string; count: number; totalMensalidade: number }>);
+    }, {} as Record<string, { name: string; count: number; totalMensalidade: number; filiados: number; naoFiliados: number }>);
     
     // Retorna apenas as 10 cidades com maior número de empregados, ordenadas por count decrescente
     return Object.values(municipalityStats)
@@ -218,6 +537,13 @@ const Dashboard = () => {
       col.toLowerCase().includes('valor') && col.toLowerCase().includes('mensalidade')
     );
     
+    // Procura pela coluna FILIADOS
+    const filiadosColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiados') || 
+      col.toLowerCase().includes('filiado') ||
+      col.toLowerCase().includes('situacao')
+    );
+    
     if (!locationColumn) {
       return [];
     }
@@ -231,19 +557,34 @@ const Dashboard = () => {
       const mensalidade = typeof mensalidadeValue === 'number' ? mensalidadeValue : 
                          typeof mensalidadeValue === 'string' ? parseFloat(mensalidadeValue.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0 : 0;
       
+      // Verifica se é filiado (tem valor na coluna filiados)
+      const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                       String((emp as any)[filiadosColumn]).trim() !== '' && 
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+      
       if (!acc[locationValue]) {
         acc[locationValue] = {
           name: locationValue,
           count: 0,
-          totalMensalidade: 0
+          totalMensalidade: 0,
+          filiados: 0,
+          naoFiliados: 0
         };
       }
       
       acc[locationValue].count++;
       acc[locationValue].totalMensalidade += mensalidade;
       
+      if (isFiliado) {
+        acc[locationValue].filiados++;
+      } else {
+        acc[locationValue].naoFiliados++;
+      }
+      
       return acc;
-    }, {} as Record<string, { name: string; count: number; totalMensalidade: number }>);
+    }, {} as Record<string, { name: string; count: number; totalMensalidade: number; filiados: number; naoFiliados: number }>);
     
     // Retorna apenas as 10 unidades com maior número de empregados, ordenadas por count decrescente
     return Object.values(locationStats)
@@ -253,6 +594,103 @@ const Dashboard = () => {
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
+  };
+
+  // Função para filtrar dados da tabela Unidades de Lotação (Busca Rápida)
+  const getFilteredLocationStats = () => {
+    if (!processedData || !locationFilter.trim()) return getLocationStats().slice(0, 5);
+    
+    const filterLower = locationFilter.toLowerCase().trim();
+    
+    // Busca direta nos dados em memória (método rápido)
+    const locationColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('lotação') || 
+      col.toLowerCase().includes('lotacao') ||
+      col.toLowerCase().includes('localização') ||
+      col.toLowerCase().includes('localizacao') ||
+      col.toLowerCase().includes('location') ||
+      col.toLowerCase().includes('unidade') ||
+      col.toLowerCase().includes('unit') ||
+      col.toLowerCase().includes('setor') ||
+      col.toLowerCase().includes('sector')
+    );
+    
+    if (!locationColumn) return getLocationStats().slice(0, 5);
+    
+    // Filtra diretamente nos dados
+    const filteredData = processedData.employees.filter(emp => {
+      const locationValue = String((emp as any)[locationColumn] || '').toLowerCase();
+      return locationValue.includes(filterLower);
+    });
+    
+    // Agrupa os dados filtrados rapidamente
+    const locationStats = new Map();
+    
+    filteredData.forEach(emp => {
+      const locationValue = (emp as any)[locationColumn] || 'Não informado';
+      
+      if (!locationStats.has(locationValue)) {
+        locationStats.set(locationValue, {
+          name: locationValue,
+          count: 0,
+          totalMensalidade: 0,
+          filiados: 0,
+          naoFiliados: 0
+        });
+      }
+      
+      const stat = locationStats.get(locationValue);
+      stat.count++;
+      
+      // Calcula mensalidade rapidamente
+      const mensalidadeColumn = processedData.columns.find(col => 
+        col.toLowerCase().includes('valor') && col.toLowerCase().includes('mensalidade')
+      );
+      
+      if (mensalidadeColumn) {
+        const mensalidadeValue = (emp as any)[mensalidadeColumn];
+        if (mensalidadeValue !== null && mensalidadeValue !== undefined && mensalidadeValue !== '') {
+          let valorNumerico = mensalidadeValue;
+          if (typeof mensalidadeValue === 'string') {
+            const valorLimpo = mensalidadeValue.replace(/[^\d,./-]/g, '').replace(',', '.');
+            valorNumerico = parseFloat(valorLimpo);
+          }
+          
+          if (valorNumerico && typeof valorNumerico === 'number' && !isNaN(valorNumerico)) {
+            stat.totalMensalidade += valorNumerico;
+          }
+        }
+      }
+      
+      // Verifica filiação rapidamente
+      const filiadosColumn = processedData.columns.find(col => 
+        col.toLowerCase().includes('filiados') || 
+        col.toLowerCase().includes('filiado') ||
+        col.toLowerCase().includes('situacao')
+      );
+      
+      if (filiadosColumn) {
+        const filiadoValue = (emp as any)[filiadosColumn];
+        const isFiliado = filiadoValue && 
+                         String(filiadoValue).trim() !== '' && 
+                         String(filiadoValue).toLowerCase() !== 'null' &&
+                         String(filiadoValue).toLowerCase() !== 'undefined' &&
+                         String(filiadoValue).toLowerCase() !== 'n/a';
+        
+        if (isFiliado) {
+          stat.filiados++;
+        } else {
+          stat.naoFiliados++;
+        }
+      }
+    });
+    
+    return Array.from(locationStats.values())
+      .map(stat => ({
+        ...stat,
+        averageMensalidade: stat.count > 0 ? stat.totalMensalidade / stat.count : 0
+      }))
+      .sort((a, b) => b.count - a.count);
   };
 
   // Função para calcular faixas salariais
@@ -326,6 +764,49 @@ const Dashboard = () => {
     return Array.from(raceCounts.entries())
       .map(([race, count]) => ({ race, count }))
       .sort((a, b) => b.count - a.count);
+  };
+
+  // Função para calcular estatísticas de filiados e não filiados
+  const getFiliadosStats = () => {
+    if (!processedData) return { filiados: 0, naoFiliados: 0, total: 0 };
+    
+    // Procura pela coluna FILIADO nos dados
+    const filiadoColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiado') ||
+      col.toLowerCase().includes('filiados') ||
+      col.toLowerCase().includes('situacao') ||
+      col.toLowerCase().includes('situação')
+    );
+    
+    if (!filiadoColumn) {
+      return { filiados: 0, naoFiliados: 0, total: processedData.employees.length };
+    }
+    
+    const stats = processedData.employees.reduce((acc, emp) => {
+      const filiadoValue = (emp as any)[filiadoColumn];
+      
+      // Verifica se é filiado (tem valor na coluna filiado)
+      // Filiado = tem algum valor na coluna
+      // Não Filiado = não tem valor (vazio, nulo, undefined) ou é "N/A"
+      const isFiliado = filiadoValue && 
+                       String(filiadoValue).trim() !== '' && 
+                       String(filiadoValue).toLowerCase() !== 'null' &&
+                       String(filiadoValue).toLowerCase() !== 'undefined' &&
+                       String(filiadoValue).toLowerCase() !== 'n/a';
+      
+      if (isFiliado) {
+        acc.filiados++;
+      } else {
+        acc.naoFiliados++;
+      }
+      
+      return acc;
+    }, { filiados: 0, naoFiliados: 0 });
+    
+    return {
+      ...stats,
+      total: stats.filiados + stats.naoFiliados
+    };
   };
 
   // Função para calcular valor total de mensalidade (versão segura)
@@ -805,6 +1286,13 @@ const Dashboard = () => {
       (col.toLowerCase().includes('afastamento') || col.toLowerCase().includes('afast') || col.toLowerCase().includes('ausência') || col.toLowerCase().includes('ausencia'))
     );
     
+    // Procura pela coluna FILIADOS
+    const filiadosColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiados') || 
+      col.toLowerCase().includes('filiado') ||
+      col.toLowerCase().includes('situacao')
+    );
+    
     if (!motivoAfastamentoColumn) return [];
     
     const motivoAfastamentoStats = processedData.employees.reduce((acc, emp) => {
@@ -817,10 +1305,26 @@ const Dashboard = () => {
             count: 0, 
             color: '#10b981',
             icon: '✅',
-            category: 'Ativo'
+            category: 'Ativo',
+            filiados: 0,
+            naoFiliados: 0
           };
         }
         acc['Sem Afastamento'].count++;
+        
+        // Verifica se é filiado
+        const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                         String((emp as any)[filiadosColumn]).trim() !== '' && 
+                         String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                         String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                         String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+        
+        if (isFiliado) {
+          acc['Sem Afastamento'].filiados++;
+        } else {
+          acc['Sem Afastamento'].naoFiliados++;
+        }
+        
         return acc;
       }
       
@@ -877,20 +1381,37 @@ const Dashboard = () => {
           count: 0,
           color: mappedMotivo.color,
           icon: mappedMotivo.icon,
-          category: mappedMotivo.category
+          category: mappedMotivo.category,
+          filiados: 0,
+          naoFiliados: 0
         };
       }
       
       acc[mappedMotivo.name].count++;
+      
+      // Verifica se é filiado
+      const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                       String((emp as any)[filiadosColumn]).trim() !== '' && 
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+      
+      if (isFiliado) {
+        acc[mappedMotivo.name].filiados++;
+      } else {
+        acc[mappedMotivo.name].naoFiliados++;
+      }
+      
       return acc;
-    }, {} as Record<string, { name: string; count: number; color: string; icon: string; category: string }>);
+    }, {} as Record<string, { name: string; count: number; color: string; icon: string; category: string; filiados: number; naoFiliados: number }>);
     
     return Object.values(motivoAfastamentoStats)
       .map(stat => ({
         ...stat,
         percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
       }))
-      .sort((a, b) => b.count - a.count);
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10); // Limita a 10 registros
   };
 
   // Função para calcular estatísticas de aniversariantes por mês
@@ -985,8 +1506,7 @@ const Dashboard = () => {
       .sort((a, b) => a.monthNumber - b.monthNumber);
   };
 
-  // Estado para controle da semana selecionada
-  const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
+
 
   // Função para calcular aniversariantes da semana
   const getWeeklyBirthdays = (weekOffset: number = 0) => {
@@ -1218,37 +1738,43 @@ const Dashboard = () => {
     setSelectedWeekOffset(0);
   };
 
+  // Debug: Log dos dados processados
+  console.log('🔍 Dashboard - processedData:', {
+    hasData: !!processedData,
+    employeesCount: processedData?.employees?.length || 0,
+    columnsCount: processedData?.columns?.length || 0,
+    dataSource: processedData?.dataSource,
+    selectedMonthYear: processedData?.selectedMonthYear,
+    availableMonths: processedData?.availableMonths,
+    availableMonthsLength: processedData?.availableMonths?.length || 0
+  });
+  
+  // Debug: Log específico para availableMonths
+  console.log('🔍 Dashboard - availableMonths debug:', {
+    availableMonths: processedData?.availableMonths,
+    isArray: Array.isArray(processedData?.availableMonths),
+    length: processedData?.availableMonths?.length,
+    firstItem: processedData?.availableMonths?.[0]
+  });
+
   if (!hasData) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Dashboard</h1>
-          <p className="text-gray-600">
-            Faça upload de um arquivo para visualizar as informações no dashboard
-          </p>
-        </div>
-        
-        <div className="card">
-          <div className="card-content">
-            <div className="text-center py-12">
-              <FileText className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Nenhum arquivo carregado
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Para visualizar o dashboard, faça upload de um arquivo Excel ou CSV na página de Upload.
-              </p>
-              <a
-                href="/upload"
-                className="inline-flex items-center px-4 py-2 rounded-lg text-white font-medium transition-colors"
-                style={{ backgroundColor: '#1d335b' }}
-              >
-                Ir para Upload
-              </a>
-            </div>
+      <>
+        <DashboardLoading 
+          isLoading={isLoadingBaseDados}
+          progress={loadingProgress}
+          currentStep={currentLoadingStep}
+          totalSteps={totalLoadingSteps}
+        />
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Dashboard</h1>
+            <p className="text-gray-600">
+              Os dados estão sendo carregados, aguarde um momento!
+            </p>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -1258,16 +1784,16 @@ const Dashboard = () => {
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Dashboard</h1>
           <p className="text-red-600">Erro: Dados não processados</p>
+          {!isSystemOwnerAdmin() && (
+            <p className="text-sm text-gray-500 mt-1">
+              Entre em contato com um administrador da empresa dona do sistema para fazer upload de arquivos
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
-  const companyStats = getCompanyStats();
-  const departmentStats = getDepartmentStats();
-  const seStats = getSEStats();
-  const municipalityStats = getMunicipalityStats();
-  const locationStats = getLocationStats();
   const genderStats = getGenderStats();
   const raceStats = getRaceStats();
 
@@ -1279,12 +1805,83 @@ const Dashboard = () => {
       <div>
         <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Dashboard</h1>
         <p className="text-gray-600">
-          Análise dos dados carregados em {formatDate(processedData.uploadedAt)}
+          {dataSource === 'base_dados' 
+            ? `O Dashboard é criado de forma dinâmica com base nas informações de sua empresa.`
+            : `Análise dos dados carregados em ${formatDate(processedData.uploadedAt)}`
+          }
         </p>
-        <p className="text-sm text-gray-500">
-          Arquivo: {processedData.fileName}
-        </p>
+        
+        {/* Seletor de mês sempre visível */}
+        <div className="mt-4 flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Calendar className="h-5 w-5" style={{ color: '#ffc9c0' }} />
+            <span className="text-sm font-medium text-gray-700">Período dos dados:</span>
+          </div>
+          <div className="relative month-selector">
+            <button
+              onClick={() => setShowMonthSelector(!showMonthSelector)}
+              className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <span className="text-sm font-medium text-gray-700">
+                {selectedMonth ? formatMonthDisplay(selectedMonth) : 'Selecionar mês/ano'}
+              </span>
+              <ChevronDown className="h-4 w-4 text-gray-500" />
+            </button>
+            
+            {showMonthSelector && (
+              <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <div className="p-2">
+                  <div className="text-xs font-medium text-gray-500 mb-2 px-2">Selecionar período:</div>
+                  {processedData?.availableMonths && processedData.availableMonths.length > 0 ? (
+                    processedData.availableMonths.map((monthYear) => (
+                      <button
+                        key={monthYear}
+                        onClick={() => handleMonthChange(monthYear)}
+                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                          monthYear === selectedMonth
+                            ? 'bg-blue-100 text-blue-800 font-medium'
+                            : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {formatMonthDisplay(monthYear)}
+                      </button>
+                    ))
+                  ) : processedData?.dataSource === 'base_dados' ? (
+                    <div className="text-sm text-gray-500 px-3 py-2">
+                      Nenhum mês disponível encontrado
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 px-3 py-2">
+                      Carregando meses disponíveis...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card de informações do período selecionado */}
+        {processedData.selectedMonthYear && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="text-sm font-medium text-blue-800">
+                Dados do período: <strong>{formatMonthDisplay(processedData.selectedMonthYear)}</strong>
+              </span>
+            </div>
+            <div className="mt-1 text-xs text-blue-600">
+              {processedData.totalRecordsInDatabase && processedData.filteredRecords && (
+                <>
+                  Exibindo {processedData.filteredRecords.toLocaleString('pt-BR')} de {processedData.totalRecordsInDatabase.toLocaleString('pt-BR')} registros disponíveis
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+
 
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1293,10 +1890,47 @@ const Dashboard = () => {
             <div className="flex items-center">
               <Users className="h-8 w-8" style={{ color: '#1d335b' }} />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Total de Filiados</p>
+                <p className="text-sm font-medium text-gray-600">Total de Empregados</p>
                 <p className="text-2xl font-bold" style={{ color: '#1d335b' }}>
                   {processedData.summary.totalRecords.toLocaleString('pt-BR')}
                 </p>
+                {/* Estatísticas de filiados e não filiados */}
+                {(() => {
+                  const filiadosStats = getFiliadosStats();
+                  if (filiadosStats.filiados > 0 || filiadosStats.naoFiliados > 0) {
+                    const total = filiadosStats.filiados + filiadosStats.naoFiliados;
+                    const percentualFiliados = total > 0 ? ((filiadosStats.filiados / total) * 100).toFixed(1) : '0.0';
+                    const percentualNaoFiliados = total > 0 ? ((filiadosStats.naoFiliados / total) * 100).toFixed(1) : '0.0';
+                    
+                    return (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium" style={{ color: '#1d335b' }}>Filiados:</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold" style={{ color: '#1d335b' }}>
+                              {filiadosStats.filiados.toLocaleString('pt-BR')}
+                            </span>
+                            <span className="text-xs" style={{ color: '#1d335b', opacity: 0.8 }}>
+                              ({percentualFiliados}%)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium" style={{ color: '#c9504c' }}>Não Filiados:</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium" style={{ color: '#c9504c' }}>
+                              {filiadosStats.naoFiliados.toLocaleString('pt-BR')}
+                            </span>
+                            <span className="text-xs" style={{ color: '#c9504c', opacity: 0.8 }}>
+                              ({percentualNaoFiliados}%)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </div>
@@ -1342,40 +1976,7 @@ const Dashboard = () => {
         )}
       </div>
       
-      {/* Estatísticas por Departamento */}
-      {departmentStats.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Estatísticas por Departamento</h3>
-          </div>
-          <div className="card-content">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {departmentStats.map((dept, index) => (
-                <div key={index} className="p-4 border border-gray-200 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-gray-900">{dept.name}</h4>
-                    <span className="text-xs text-gray-500">{dept.count} funcionários</span>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-600">
-                      Salário médio: {formatCurrency(dept.averageSalary)}
-                    </p>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="h-2 rounded-full transition-all duration-300"
-                        style={{ 
-                          backgroundColor: '#1d335b',
-                          width: `${(dept.count / Math.max(...departmentStats.map(d => d.count))) * 100}%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Estatísticas por Gênero */}
       {genderStats.length > 0 && (
@@ -1510,93 +2111,103 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-      
-      {/* Estatísticas por SE (Sindicato/Entidade) */}
-      {seStats.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Estatísticas por SE (Sindicato/Entidade)</h3>
-          </div>
-          <div className="card-content">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SE</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionários</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiação Média</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distribuição</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {seStats.map((se, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {se.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {se.count.toLocaleString('pt-BR')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatCurrency(se.averageMensalidade)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                            <div 
-                              className="h-2 rounded-full transition-all duration-300"
-                              style={{ 
-                                backgroundColor: '#c9504c',
-                                width: `${(se.count / Math.max(...seStats.map(s => s.count))) * 100}%`
-                              }}
-                            ></div>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {((se.count / processedData.summary.validRecords) * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Análise por Municípios */}
-      {municipalityStats.length > 0 && (
+      {/* Estatísticas por SE e Base Sindical */}
+      {getSEStats().length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 10 Municípios</h3>
+            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Estatísticas por SE e Base Sindical</h3>
           </div>
           <div className="card-content">
+            {/* Filtro e Controles */}
+            <div className="mb-6 space-y-4">
+              {/* Filtro */}
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-64">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Filtrar por SE ou Base Sindical
+                  </label>
+                  <input
+                    type="text"
+                    value={seFilter}
+                    onChange={(e) => setSeFilter(e.target.value)}
+                    placeholder="Digite o nome da SE ou Base Sindical..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                  />
+                </div>
+                
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-2 text-sm font-medium text-white rounded-md transition-colors"
+                  style={{ backgroundColor: '#c9504c' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d65a56'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#c9504c'}
+                >
+                  Limpar Filtro
+                </button>
+              </div>
+              
+              {/* Informações dos Filtros */}
+              <div className="flex justify-end">
+                <div className="text-sm text-gray-600">
+                  {getFilteredSEStats().length.toLocaleString('pt-BR')} registros encontrados
+                </div>
+              </div>
+            </div>
+            
             <div>
               <p className="text-sm text-gray-600 mb-4">
-                Mostrando as 10 cidades com maior número de funcionários
+                {seFilter ? 'Mostrando todas as SEs e Bases Sindicais que correspondem ao filtro aplicado' : 'Mostrando as 5 SEs e Bases Sindicais com maior número de funcionários'}
               </p>
+              
               <div className="overflow-x-auto">
+              {getFilteredSEStats().length > 0 ? (
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Município</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SE</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Sindical</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionários</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiados</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Não Filiados</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiação Média</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distribuição</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {municipalityStats.map((municipality, index) => (
+                    {getFilteredSEStats().map((se, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {municipality.name}
+                          {se.name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {municipality.count.toLocaleString('pt-BR')}
+                          {se.baseSindical}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatCurrency(municipality.averageMensalidade)}
+                          {se.count.toLocaleString('pt-BR')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="text-center">
+                            <div className="font-medium text-green-600">
+                              {se.filiados.toLocaleString('pt-BR')}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {((se.filiados / se.count) * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="text-center">
+                            <div className="font-medium text-red-600">
+                              {se.naoFiliados.toLocaleString('pt-BR')}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {((se.naoFiliados / se.count) * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatCurrency(se.averageMensalidade)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -1605,12 +2216,12 @@ const Dashboard = () => {
                                 className="h-2 rounded-full transition-all duration-300"
                                 style={{ 
                                   backgroundColor: '#c9504c',
-                                  width: `${(municipality.count / Math.max(...municipalityStats.map(m => m.count))) * 100}%`
+                                  width: `${(se.count / Math.max(...getFilteredSEStats().map(s => s.count))) * 100}%`
                                 }}
                               ></div>
                             </div>
                             <span className="text-xs text-gray-500">
-                              {((municipality.count / processedData.summary.validRecords) * 100).toFixed(1)}%
+                              {((se.count / processedData.summary.validRecords) * 100).toFixed(1)}%
                             </span>
                           </div>
                         </td>
@@ -1618,6 +2229,144 @@ const Dashboard = () => {
                     ))}
                   </tbody>
                 </table>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-gray-500 text-lg mb-2">
+                    Nenhum resultado encontrado para o filtro aplicado
+                  </div>
+                  <div className="text-gray-400 text-sm">
+                    Tente ajustar os critérios de busca ou limpar o filtro
+                  </div>
+                </div>
+              )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Análise por Municípios */}
+      {getMunicipalityStats().length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 5 Municípios</h3>
+          </div>
+          <div className="card-content">
+            {/* Filtro */}
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-64">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Filtrar por Município
+                  </label>
+                  <input
+                    type="text"
+                    value={municipalityFilter}
+                    onChange={(e) => setMunicipalityFilter(e.target.value)}
+                    placeholder="Digite o nome do município..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                  />
+                </div>
+                
+                <button
+                  onClick={clearMunicipalityFilters}
+                  className="px-4 py-2 text-sm font-medium text-white rounded-md transition-colors"
+                  style={{ backgroundColor: '#c9504c' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d65a56'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#c9504c'}
+                >
+                  Limpar Filtro
+                </button>
+              </div>
+              
+              {/* Informações dos Filtros */}
+              <div className="flex justify-end mt-2">
+                <div className="text-sm text-gray-600">
+                  {getFilteredMunicipalityStats().length.toLocaleString('pt-BR')} registros encontrados
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-sm text-gray-600 mb-4">
+                {municipalityFilter ? 'Mostrando todos os municípios que correspondem ao filtro aplicado' : 'Mostrando as 5 cidades com maior número de funcionários'}
+              </p>
+              
+              <div className="overflow-x-auto">
+                {getFilteredMunicipalityStats().length > 0 ? (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Município</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionários</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiados</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Não Filiados</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiação Média</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distribuição</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {getFilteredMunicipalityStats().map((municipality, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {municipality.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {municipality.count.toLocaleString('pt-BR')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="text-center">
+                              <div className="font-medium text-green-600">
+                                {municipality.filiados.toLocaleString('pt-BR')}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {((municipality.filiados / municipality.count) * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="text-center">
+                              <div className="font-medium text-red-600">
+                                {municipality.naoFiliados.toLocaleString('pt-BR')}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {((municipality.naoFiliados / municipality.count) * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatCurrency(municipality.averageMensalidade)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                <div 
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{ 
+                                    backgroundColor: '#c9504c',
+                                    width: `${(municipality.count / Math.max(...getFilteredMunicipalityStats().map(m => m.count))) * 100}%`
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-xs text-gray-500">
+                                {((municipality.count / processedData.summary.validRecords) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-gray-500 text-lg mb-2">
+                      Nenhum resultado encontrado para o filtro aplicado
+                    </div>
+                    <div className="text-gray-400 text-sm">
+                      Tente ajustar os critérios de busca ou limpar o filtro
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1625,58 +2374,126 @@ const Dashboard = () => {
       )}
 
       {/* Análise por Unidades de Lotação */}
-      {locationStats.length > 0 && (
+      {getLocationStats().length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 10 Unidades de Lotação</h3>
+            <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 5 Unidades de Lotação</h3>
           </div>
           <div className="card-content">
+            {/* Filtro */}
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-64 relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Filtrar por Unidade
+                  </label>
+                  <input
+                    type="text"
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                    placeholder="Digite o nome da unidade..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                  />
+                </div>
+                
+                <button
+                  onClick={clearLocationFilters}
+                  className="px-4 py-2 text-sm font-medium text-white rounded-md transition-colors"
+                  style={{ backgroundColor: '#c9504c' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d65a56'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#c9504c'}
+                >
+                  Limpar Filtro
+                </button>
+              </div>
+              
+              {/* Informações dos Filtros */}
+              <div className="flex justify-end mt-2">
+                <div className="text-sm text-gray-600">
+                  {getFilteredLocationStats().length.toLocaleString('pt-BR')} registros encontrados
+                </div>
+              </div>
+            </div>
+            
             <div>
               <p className="text-sm text-gray-600 mb-4">
-                Mostrando as 10 unidades com maior número de funcionários
+                {locationFilter ? 'Mostrando todas as unidades que correspondem ao filtro aplicado' : 'Mostrando as 5 unidades com maior número de funcionários'}
               </p>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unidade</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionários</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiação Média</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distribuição</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {locationStats.map((location, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {location.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {location.count.toLocaleString('pt-BR')}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatCurrency(location.averageMensalidade)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                              <div 
-                                className="h-2 rounded-full transition-all duration-300"
-                                style={{ 
-                                  backgroundColor: '#c9504c',
-                                  width: `${(location.count / Math.max(...locationStats.map(l => l.count))) * 100}%`
-                                }}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-500">
-                              {((location.count / processedData.summary.validRecords) * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                        </td>
+                {getFilteredLocationStats().length > 0 ? (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unidade</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionários</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiados</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Não Filiados</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiação Média</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distribuição</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {getFilteredLocationStats().map((location, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {location.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {location.count.toLocaleString('pt-BR')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="text-center">
+                              <div className="font-medium text-green-600">
+                                {location.filiados.toLocaleString('pt-BR')}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {((location.filiados / location.count) * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="text-center">
+                              <div className="font-medium text-red-600">
+                                {location.naoFiliados.toLocaleString('pt-BR')}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {((location.naoFiliados / location.count) * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatCurrency(location.averageMensalidade)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                                <div 
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{ 
+                                    backgroundColor: '#c9504c',
+                                    width: `${(location.count / Math.max(...getFilteredLocationStats().map(l => l.count))) * 100}%`
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-xs text-gray-500">
+                                {((location.count / processedData.summary.validRecords) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-gray-500 text-lg mb-2">
+                      Nenhum resultado encontrado para o filtro aplicado
+                    </div>
+                    <div className="text-gray-400 text-sm">
+                      Tente ajustar os critérios de busca ou limpar o filtro
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2282,11 +3099,14 @@ const Dashboard = () => {
             <div className="flex items-center space-x-3">
               <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Motivo de Afastamento</h3>
               <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                {getMotivoAfastamentoStats().length} motivos
+                Top 10 motivos
               </span>
             </div>
           </div>
           <div className="card-content">
+            <p className="text-sm text-gray-600 mb-4">
+              Mostrando os 10 principais motivos de afastamento com distribuição entre filiados e não filiados
+            </p>
                          {/* Tabela Simples */}
              <div className="overflow-hidden">
                <div className="overflow-x-auto">
@@ -2295,6 +3115,8 @@ const Dashboard = () => {
                      <tr>
                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motivo</th>
                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionários</th>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filiados</th>
+                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Não Filiados</th>
                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentual</th>
                      </tr>
                    </thead>
@@ -2306,6 +3128,26 @@ const Dashboard = () => {
                          </td>
                          <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: '#2f4a8c' }}>
                            {motivo.count.toLocaleString('pt-BR')}
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                           <div className="text-center">
+                             <div className="font-medium text-green-600">
+                               {motivo.filiados.toLocaleString('pt-BR')}
+                             </div>
+                             <div className="text-xs text-gray-500">
+                               {motivo.count > 0 ? ((motivo.filiados / motivo.count) * 100).toFixed(1) : '0'}%
+                             </div>
+                           </div>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                           <div className="text-center">
+                             <div className="font-medium text-red-600">
+                               {motivo.naoFiliados.toLocaleString('pt-BR')}
+                             </div>
+                             <div className="text-xs text-gray-500">
+                               {motivo.count > 0 ? ((motivo.naoFiliados / motivo.count) * 100).toFixed(1) : '0'}%
+                             </div>
+                           </div>
                          </td>
                          <td className="px-6 py-4 whitespace-nowrap">
                            <div className="flex items-center space-x-3">
@@ -2487,7 +3329,7 @@ const Dashboard = () => {
                             <div className="flex items-center space-x-2 px-3 py-1.5 bg-[#fff5f4] border border-[#ffc9c0] text-[#8b2e2a] rounded-full shadow-sm">
                               <span className="text-[#c9504c] text-sm">🎂</span>
                               <span className="text-sm font-medium">
-                                {todaysBirthdays.length} aniversariante{todaysBirthdays.length !== 1 ? 's' : ''} hoje!
+                                {todaysBirthdays.length.toLocaleString('pt-BR')} aniversariante{todaysBirthdays.length !== 1 ? 's' : ''} hoje!
                               </span>
                             </div>
                           );
@@ -2641,7 +3483,7 @@ const Dashboard = () => {
                         <div className="inline-flex items-center space-x-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
                           <span className="w-2 h-2 bg-[#ffc9c0] rounded-full"></span>
                           <span>
-                            {getWeeklyBirthdays(selectedWeekOffset).length} aniversariante{getWeeklyBirthdays(selectedWeekOffset).length !== 1 ? 's' : ''} na semana
+                            {getWeeklyBirthdays(selectedWeekOffset).length.toLocaleString('pt-BR')} aniversariante{getWeeklyBirthdays(selectedWeekOffset).length !== 1 ? 's' : ''} na semana
                           </span>
                           {getWeeklyBirthdays(selectedWeekOffset).length > 6 && (
                             <span className="text-xs text-[#c9504c] font-medium">
@@ -2651,9 +3493,6 @@ const Dashboard = () => {
                         </div>
                       </div>
                     )}
-                  </div>
-                  <div className="mt-3 text-sm text-gray-500 text-center">
-                    Total de {getWeeklyBirthdays(selectedWeekOffset).length} aniversariante{getWeeklyBirthdays(selectedWeekOffset).length !== 1 ? 's' : ''} na semana selecionada
                   </div>
                 </div>
               </div>
@@ -2779,7 +3618,7 @@ const Dashboard = () => {
                                <span className="font-medium">Parabéns!</span>
                              </div>
                              <p className="text-sm">
-                               Hoje é aniversário de <strong>{todaysBirthdays.length} funcionário{todaysBirthdays.length !== 1 ? 's' : ''}</strong>!
+                               Hoje é aniversário de <strong>{todaysBirthdays.length.toLocaleString('pt-BR')} funcionário{todaysBirthdays.length !== 1 ? 's' : ''}</strong>!
                              </p>
                              <p className="text-xs mt-1 opacity-90">
                                Navegue pelas semanas para encontrá-los
@@ -2819,45 +3658,9 @@ const Dashboard = () => {
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 gap-6">
-        {/* Gráfico de Barras - Funcionários por Empresa */}
-        {companyStats.length > 0 && (
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Funcionários por Empresa</h3>
-            </div>
-            <div className="card-content">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={companyStats}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [value, 'Funcionários']} />
-                  <Bar dataKey="count" fill="#1d335b" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
 
-        {/* Gráfico de Linha - Salário Médio por Departamento */}
-        {departmentStats.length > 0 && (
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Salário Médio por Departamento</h3>
-            </div>
-            <div className="card-content">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={departmentStats}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [formatCurrency(value as number), 'Salário Médio']} />
-                  <Line type="monotone" dataKey="averageSalary" stroke="#c9504c" strokeWidth={3} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
+
+
 
 
 
@@ -2917,7 +3720,7 @@ const Dashboard = () => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ percentage }: { percentage: number }) => `${percentage.toFixed(1)}%`}
+                    label={false}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="count"
@@ -2932,11 +3735,7 @@ const Dashboard = () => {
             </div>
           </div>
         )}
-
-
       </div>
-
-
     </div>
   );
 };

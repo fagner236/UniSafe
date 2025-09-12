@@ -15,6 +15,17 @@ router.get('/test', (req: Request, res: Response) => {
   res.json({ message: 'Rota de teste funcionando' });
 });
 
+// Rota de teste para check-cnpj
+console.log('📝 Registrando rota de teste: GET /api/companies/check-cnpj-test');
+router.get('/check-cnpj-test', (req: Request, res: Response) => {
+  console.log('✅ Rota de teste check-cnpj funcionando');
+  res.json({ 
+    message: 'Rota de teste check-cnpj funcionando',
+    timestamp: new Date().toISOString(),
+    query: req.query
+  });
+});
+
 // POST /api/companies - Cadastrar nova empresa
 router.post('/', validateCompanyData, async (req: Request, res: Response) => {
   try {
@@ -123,24 +134,30 @@ router.put('/:id', auth, validateCompanyData, async (req: Request, res: Response
     }
 });
 
-// Rota de verificação de CNPJ
+
+
+// Rota de verificação de CNPJ (DEVE VIR ANTES DE /:id)
 console.log('📝 Registrando rota: GET /api/companies/check-cnpj');
 router.get('/check-cnpj', async (req: Request, res: Response) => {
   console.log('🔍 Rota de verificação de CNPJ chamada');
   console.log('🔍 URL completa:', req.url);
   console.log('🔍 Método:', req.method);
+  console.log('🔍 Query params:', req.query);
   
   try {
     const { cnpj } = req.query;
     console.log('🔍 CNPJ recebido:', cnpj);
     
     if (!cnpj || typeof cnpj !== 'string') {
+      console.log('❌ CNPJ inválido ou não fornecido');
       return res.status(400).json({
         success: false,
         message: 'CNPJ é obrigatório'
       });
     }
 
+    console.log('🔍 Iniciando busca no banco de dados...');
+    
     // Buscar empresa pelo CNPJ (considerando ambos os formatos)
     let company = await prisma.company.findUnique({
       where: { cnpj },
@@ -157,9 +174,12 @@ router.get('/check-cnpj', async (req: Request, res: Response) => {
       }
     });
 
+    console.log('🔍 Busca 1 (formato original):', company ? 'Encontrado' : 'Não encontrado');
+
     // Se não encontrou, tentar com o formato formatado
     if (!company) {
       const cnpjFormatado = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+      console.log('🔍 Tentando formato formatado:', cnpjFormatado);
       company = await prisma.company.findUnique({
         where: { cnpj: cnpjFormatado },
         select: {
@@ -174,11 +194,13 @@ router.get('/check-cnpj', async (req: Request, res: Response) => {
           data_atualizacao: true
         }
       });
+      console.log('🔍 Busca 2 (formato formatado):', company ? 'Encontrado' : 'Não encontrado');
     }
 
     // Se ainda não encontrou, tentar com o formato limpo
     if (!company) {
       const cnpjLimpo = cnpj.replace(/\D/g, '');
+      console.log('🔍 Tentando formato limpo:', cnpjLimpo);
       company = await prisma.company.findUnique({
         where: { cnpj: cnpjLimpo },
         select: {
@@ -193,9 +215,10 @@ router.get('/check-cnpj', async (req: Request, res: Response) => {
           data_atualizacao: true
         }
       });
+      console.log('🔍 Busca 3 (formato limpo):', company ? 'Encontrado' : 'Não encontrado');
     }
 
-    console.log('📊 Resultado da busca:', company ? 'Empresa encontrada' : 'CNPJ disponível');
+    console.log('📊 Resultado final da busca:', company ? 'Empresa encontrada' : 'CNPJ disponível');
 
     if (company) {
       // CNPJ existe - retornar dados da empresa

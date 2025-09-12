@@ -1,14 +1,89 @@
 import { Request, Response, NextFunction } from 'express';
 
+/**
+ * Middleware para adicionar headers de segurança
+ * Protege contra ataques comuns e vazamento de dados
+ */
 export const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
-  // Headers de segurança adicionais
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  
+  // Headers de segurança básicos
+  res.set({
+    // Previne clickjacking
+    'X-Frame-Options': 'DENY',
+    
+    // Previne MIME type sniffing
+    'X-Content-Type-Options': 'nosniff',
+    
+    // Proteção XSS
+    'X-XSS-Protection': '1; mode=block',
+    
+    // Política de referrer
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    
+    // Política de conteúdo de segurança
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none';",
+    
+    // Previne cache de dados sensíveis
+    'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    
+    // Permissões de recursos
+    'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+    
+    // HSTS (HTTP Strict Transport Security)
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
+  });
+
+  // Log de tentativas de acesso suspeitas
+  const suspiciousHeaders = [
+    'x-forwarded-for',
+    'x-real-ip',
+    'x-forwarded-proto',
+    'x-forwarded-host'
+  ];
+
+  const hasSuspiciousHeaders = suspiciousHeaders.some(header => 
+    req.headers[header] && req.headers[header] !== req.ip
+  );
+
+  if (hasSuspiciousHeaders) {
+    console.log('⚠️ Headers suspeitos detectados:', {
+      ip: req.ip,
+      headers: suspiciousHeaders.filter(header => req.headers[header])
+    });
+  }
+
   next();
+};
+
+/**
+ * Middleware para validar origem das requisições
+ */
+export const validateOrigin = (req: Request, res: Response, next: NextFunction) => {
+  const origin = req.get('Origin');
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:4173',
+    'https://unisafe.com', // Substitua pelo seu domínio de produção
+    'https://www.unisafe.com'
+  ];
+
+  // Permitir requisições sem origem (como mobile apps)
+  if (!origin) {
+    return next();
+  }
+
+  if (allowedOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    next();
+  } else {
+    console.log('❌ Origem não permitida:', origin);
+    res.status(403).json({
+      success: false,
+      message: 'Origem não permitida'
+    });
+  }
 };
 
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {

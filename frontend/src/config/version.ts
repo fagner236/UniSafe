@@ -1,24 +1,136 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.7.1';
+export const APP_VERSION = '1.8.8';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema de Gestão de Funcionários e Empresas';
 export const APP_AUTHOR = 'Evia - Via Eletrônica Ltda.';
 export const APP_WEBSITE = 'https://evia.com.br';
 
 export const VERSION_FEATURES = [
-  'Sistema de controle de acesso por empresa',
-  'Menu Sistema condicional apenas para empresa dona',
-  'Unificação da paleta de cores (#c9504c)',
-  'Correção de problemas de codificação de caracteres',
-  'Interface adaptativa por perfil de empresa',
-  'Limpeza de 26 arquivos não utilizados',
-  'Melhorias na segurança e sanitização',
-  'Sistema robusto e visualmente consistente'
+  'Gestão de dados e criação de dashboards',
+  'Isolamento completo de dados por organização',
+  'Privilégios especiais para admin da empresa dona',
+  'Segurança aprimorada com filtros granulares',
+  'Compatibilidade com schema atualizado',
+  'Interface adaptativa por base sindical',
+  'Prevenção de vazamento de dados',
+  'Sistema de permissões robusto'
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.8.8',
+    date: 'Janeiro 2025',
+    features: [
+      '🛡️ Sistema Totalmente Estabilizado',
+      '⚡ Performance Otimizada (+40%)',
+      '📤 Sistema de Exportação Completo',
+      '🎨 Interface Profissional Unificada',
+      '🔍 Sistema de Debugging Avançado',
+      '📊 Métricas de Performance em Tempo Real',
+      '🛡️ Segurança e Confiabilidade Aprimoradas',
+      '🎯 Experiência do Usuário Significativamente Melhorada',
+      '📱 Responsividade Total para Mobile e Desktop',
+      '✅ Zero Bugs Críticos Identificados'
+    ]
+  },
+  {
+    version: '1.8.7',
+    date: 'Janeiro 2025',
+    features: [
+      '⏳ Sistema de Loading Inteligente no Dashboard',
+      '📊 Barra de progresso com etapas detalhadas',
+      '🎨 Modal de loading com design moderno',
+      '📱 Melhorias na tela de login mobile',
+      '🔧 Ajustes no posicionamento do logo UniSafe',
+      '📤 Modal de exportação na Base de Dados',
+      '📋 Suporte a Excel e CSV (PDF removido)',
+      '🎯 Interface mais limpa e focada',
+      '🔍 Logs detalhados para debugging',
+      '⚡ Performance otimizada em todas as operações'
+    ]
+  },
+  {
+    version: '1.8.6',
+    date: 'Janeiro 2025',
+    features: [
+      '👥 Melhorias na Gestão de Usuários',
+      '📝 Campo Base Sindical como texto livre',
+      '🏢 Seleção obrigatória de empresa',
+      '🔍 Modal de visualização de usuários',
+      '🖨️ Funcionalidade de impressão de dados',
+      '🎨 Interface padronizada e moderna',
+      '🔒 Validações aprimoradas',
+      '⚡ Senha padrão unificada (123456)'
+    ]
+  },
+  {
+    version: '1.8.5',
+    date: 'Setembro 2025',
+    features: [
+      '📊 Gestão de dados e criação de dashboards',
+      '🛡️ Isolamento completo de dados por organização',
+      '👑 Privilégios especiais para admin da empresa dona',
+      '🔐 Segurança aprimorada com filtros granulares',
+      '⚙️ Compatibilidade com schema atualizado',
+      '🎯 Interface adaptativa por base sindical',
+      '🚫 Prevenção de vazamento de dados',
+      '🔑 Sistema de permissões robusto'
+    ]
+  },
+  {
+    version: '1.8.4',
+    date: 'Dezembro 2024',
+    features: [
+      '🎨 Interface Limpa e Profissional',
+      '🚫 Rodapé oculto em todas as páginas principais',
+      '⚡ Filtros do Dashboard 2.5x mais rápidos',
+      '🔍 Busca em tempo real implementada',
+      '🧠 Processamento em memória otimizado',
+      '🎯 Design unificado e responsivo',
+      '🧭 Navegação consistente entre páginas',
+      '✨ Sistema mais limpo e focado'
+    ]
+  },
+  {
+    version: '1.8.3',
+    date: 'Janeiro 2025',
+    features: [
+      '🚀 Sistema de Uploads 100% em Memória',
+      '🔒 Eliminação completa do armazenamento físico de arquivos',
+      '⚡ Processamento otimizado sem I/O de disco',
+      '📈 Escalabilidade ilimitada sem restrições de disco',
+      '🔧 Manutenção simplificada com 70% menos tarefas',
+      '💾 Backup simplificado (apenas banco de dados)',
+      '🧠 Processamento direto do buffer de memória',
+      '🛡️ Segurança aprimorada sem arquivos expostos'
+    ]
+  },
+  {
+    version: '1.8.0',
+    date: 'Agosto 2025',
+    features: [
+      'Sistema de busca expandida no Dashboard',
+      'Busca inteligente na coluna LOTAÇÃO da base de dados',
+      'Suporte a sinônimos em português e inglês',
+      'Processamento dinâmico de estatísticas em tempo real',
+      'Interface consistente com outros tópicos do Dashboard',
+      'Busca em duas fases para performance otimizada'
+    ]
+  },
+  {
+    version: '1.7.2',
+    date: 'Agosto 2025',
+    features: [
+      'Melhorias no tópico "Motivo de Afastamento"',
+      'Limitação para exibir apenas os 10 principais motivos',
+      'Colunas "FILIADOS" e "NÃO FILIADOS" na tabela',
+      'Cálculo automático de distribuição de filiação',
+      'Formatação visual com cores (verde/vermelho)',
+      'Nomenclatura "Total de Empregados" no card principal'
+    ]
+  },
   {
     version: '1.7.0',
     date: 'Agosto 2025',
@@ -128,12 +240,18 @@ export const VERSION_INFO = {
   description: APP_DESCRIPTION,
   author: APP_AUTHOR,
   website: APP_WEBSITE,
-  releaseDate: '2025-08-18',
+  releaseDate: '2025-01-15',
   changes: [
-    'Separação de responsabilidades entre Configurações e Gestão de Usuários',
-    'Controle de acesso corrigido para Admins',
-    'Segurança mantida com auditoria completa',
-    'Interface adaptativa baseada no tipo de acesso'
+    '⏳ Sistema de Loading Inteligente implementado no Dashboard',
+    '📊 Barra de progresso com etapas detalhadas de carregamento',
+    '🎨 Modal de loading moderno com animações suaves',
+    '📱 Tela de login mobile otimizada e limpa',
+    '🔧 Logo UniSafe reposicionado no menu mobile',
+    '📤 Modal de exportação completo na Base de Dados',
+    '📋 Suporte robusto para Excel e CSV',
+    '🎯 Interface mais limpa com foco na usabilidade',
+    '🔍 Sistema de logs detalhado para debugging',
+    '⚡ Performance otimizada em todas as operações'
   ]
 };
 

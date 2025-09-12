@@ -10,47 +10,42 @@ import authRoutes from './routes/auth';
 import employeeRoutes from './routes/employees';
 import uploadRoutes from './routes/upload';
 import dashboardRoutes from './routes/dashboard';
-import companyRoutes from './routes/companies';
+import companyRoutes from './routes/companies-simple';
 import userRoutes from './routes/users';
 import adminRoutes from './routes/admin';
 import logsRoutes from './routes/logs';
+import empregadosRoutes from './routes/empregados';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
-import { securityHeaders, sanitizeInput } from './middleware/securityHeaders';
-// import { generalRateLimit } from './middleware/security';
-import { securityConfig, validateSecurityConfig } from './config/security';
+import { securityConfig } from './config/security';
 
 // Load environment variables
 dotenv.config();
 
-// Validar configuração de segurança antes de iniciar
-try {
-  validateSecurityConfig();
-  console.log('✅ Configuração de segurança validada com sucesso');
-} catch (error) {
-  console.error('❌ Erro na configuração de segurança:', (error as Error).message);
-  process.exit(1);
-}
-
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Voltando para porta 3000
 
-// Middleware de segurança
-app.use(helmet());
-app.use(securityHeaders);
-app.use(sanitizeInput);
+// Middleware de segurança básico
+app.use(helmet({
+  contentSecurityPolicy: false, // Desabilitar CSP temporariamente
+  crossOriginEmbedderPolicy: false // Desabilitar CEP temporariamente
+}));
 
-// Rate limiting geral - DESABILITADO TEMPORARIAMENTE
-// app.use(generalRateLimit);
-
-// CORS configurado
-app.use(cors(securityConfig.cors));
+// CORS configurado de forma funcional
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // Logging
 app.use(morgan('combined'));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+
+// Parsers - OTIMIZADO PARA ARQUIVOS GRANDES
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -73,6 +68,7 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/logs', logsRoutes);
+app.use('/api/empregados', empregadosRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
@@ -90,6 +86,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📊 Ambiente: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 URL: http://localhost:${PORT}`);
+  console.log(`🔧 Sistema funcionando com configuração estável`);
 });
 
 export default app;

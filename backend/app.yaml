@@ -1,5 +1,5 @@
-runtime: nodejs20
-service: unisafe
+runtime: nodejs24
+service: unisafe-api 
 
 entrypoint: node server.js
 
@@ -8,4 +8,4 @@ env_variables:
   JWT_SECRET: "sindicato-super-secret-jwt-key-change-this-in-production"
   PORT: "3000"
   NODE_ENV: "development"
-  CORS_ORIGIN: "http://unisafe.evia.com.br:5173"
+  CORS_ORIGIN: " https://unisafe-api-dot-evia-app.ue.r.appspot.com/:5173"

@@ -14,7 +14,7 @@ import UserManagement from '@/pages/UserManagement';
 import Profile from '@/pages/Profile';
 import Settings from '@/pages/Settings';
 import CNPJTestPage from '@/pages/CNPJTestPage';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import ProtectedRoute, { AdminRoute } from '@/components/ProtectedRoute';
 
 function App() {
   return (
@@ -28,7 +28,7 @@ function App() {
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="employees" element={<Employees />} />
-            <Route path="upload" element={<Upload />} />
+            <Route path="upload" element={<AdminRoute><Upload /></AdminRoute>} />
             <Route path="admin" element={<Admin />} />
             <Route path="admin/logs" element={<SystemLogs />} />
             <Route path="admin/users" element={<UserManagement />} />

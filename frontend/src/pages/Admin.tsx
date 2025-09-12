@@ -1,5 +1,3 @@
-import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
@@ -11,9 +9,7 @@ import {
 } from 'lucide-react';
 
 const Admin = () => {
-  const { user, token } = useAuth();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
 
   // Funcionalidades administrativas disponíveis
   const adminFeatures = [

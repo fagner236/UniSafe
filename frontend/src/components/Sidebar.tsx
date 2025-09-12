@@ -11,12 +11,6 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getVersionString } from '../config/version';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Upload', href: '/upload', icon: Upload },
-  { name: 'Base de Dados', href: '/employees', icon: Users },
-];
-
 const Sidebar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user } = useAuth();
@@ -35,6 +29,21 @@ const Sidebar = () => {
     return null;
   }
 
+  // Navegação base para todos os usuários
+  const baseNavigation = [
+    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Base de Dados', href: '/employees', icon: Users },
+  ];
+
+  // Adicionar menu Upload apenas para usuários Admin da empresa dona do sistema
+  const navigation = isSystemAdmin
+    ? [
+        ...baseNavigation.slice(0, 1), // Dashboard
+        { name: 'Upload', href: '/upload', icon: Upload },
+        ...baseNavigation.slice(1) // Base de Dados
+      ]
+    : baseNavigation;
+
   return (
     <>
       {/* Mobile sidebar */}
@@ -43,8 +52,8 @@ const Sidebar = () => {
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col" style={{ backgroundColor: '#1d335b' }}>
           <div className="flex h-16 items-center justify-between px-4 -pt-3" style={{ backgroundColor: '#ffc9c0' }}>
             <div className="relative flex items-center">
-              <img src="/logo.svg.png" alt="evia Logo" className="h-12 w-auto -ml-6" style={{ objectFit: 'contain' }} />
-              <h1 className="absolute text-xs font-light tracking-wide ml-1 mt-8" style={{ color: '#1d335b' }}>UniSafe</h1>
+              <img src="/logo.svg.png" alt="evia Logo" className="h-12 w-auto" style={{ objectFit: 'contain' }} />
+              <h1 className="absolute text-sm font-light tracking-wide ml-12 mt-10" style={{ color: '#1d335b' }}>UniSafe</h1>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}

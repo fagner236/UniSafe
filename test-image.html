@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Imagem</title>
+</head>
+<body>
+    <h1>Teste de Carregamento de Imagem</h1>
+    
+    <h2>Imagem 1: URL completa</h2>
+    <img src="http://localhost:3000/uploads/empregados/foto-1757642583808-452238947.jpg" 
+         alt="Teste 1" 
+         style="width: 200px; height: 200px; border: 2px solid #ccc;"
+         onload="console.log('✅ Imagem 1 carregada com sucesso')"
+         onerror="console.log('❌ Erro ao carregar imagem 1')">
+    
+    <h2>Imagem 2: URL relativa</h2>
+    <img src="/uploads/empregados/foto-1757642583808-452238947.jpg" 
+         alt="Teste 2" 
+         style="width: 200px; height: 200px; border: 2px solid #ccc;"
+         onload="console.log('✅ Imagem 2 carregada com sucesso')"
+         onerror="console.log('❌ Erro ao carregar imagem 2')">
+    
+    <h2>Imagem 3: URL com /api</h2>
+    <img src="/api/uploads/empregados/foto-1757642583808-452238947.jpg" 
+         alt="Teste 3" 
+         style="width: 200px; height: 200px; border: 2px solid #ccc;"
+         onload="console.log('✅ Imagem 3 carregada com sucesso')"
+         onerror="console.log('❌ Erro ao carregar imagem 3')">
+    
+    <script>
+        console.log('🧪 Teste de carregamento de imagens iniciado');
+    </script>
+</body>
+</html>

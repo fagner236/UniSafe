@@ -38,7 +38,7 @@ const CNPJTest: React.FC = () => {
       const cleanCNPJ = cnpj.replace(/\D/g, '');
       console.log('🧪 Testando CNPJ:', cleanCNPJ);
       
-      const response = await api.get(`/api/companies/check-cnpj/${cleanCNPJ}`);
+      const response = await api.get(`/companies/check-cnpj/${cleanCNPJ}`);
       console.log('📡 Resposta do teste:', response.data);
       
       if (response.data.success) {

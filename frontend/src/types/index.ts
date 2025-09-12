@@ -19,17 +19,50 @@ export interface Employee {
   [key: string]: any; // Permite propriedades dinâmicas
 }
 
+export interface ColumnMapping {
+  id?: string;
+  uploadId: string;
+  fileName: string;
+  columnMappings: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+}
+
+export interface SaveMappingsRequest {
+  uploadId: string;
+  fileName: string;
+  columnMappings: Record<string, string>;
+}
+
+export interface SaveMappingsResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    mappingId: string;
+    savedMappings: Record<string, string>;
+  };
+  error?: string;
+}
+
+export interface GetMappingsResponse {
+  success: boolean;
+  data: ColumnMapping[];
+  message?: string;
+}
+
 export interface UploadFile {
   id: string;
   filename: string;
   originalName: string;
   size: number;
-  status: 'pending' | 'processing' | 'completed' | 'error';
+  status: 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'error';
   uploadedAt: string;
   processedAt?: string;
   errorMessage?: string;
   totalRecords?: number;
   processedRecords?: number;
+  id_empresa?: string; // Campo para vincular à empresa
 }
 
 export interface DashboardStats {
@@ -60,11 +93,19 @@ export interface Department {
   averageSalary: number;
 }
 
+export interface BaseDadosField {
+  field: string;
+  label: string;
+  description: string;
+  required: boolean;
+}
+
 export interface User {
   id_usuario: string;
   nome: string;
   email: string;
   perfil: 'admin' | 'user' | 'ghost';
+  base_sindical?: string;
   data_criacao: string;
   data_atualizacao?: string;
   id_empresa?: string;

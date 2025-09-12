@@ -75,6 +75,10 @@ const ForgotPassword = () => {
                       className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2f4a8c] focus:border-[#2f4a8c] hover:border-[#1d335b] bg-gray-50 focus:bg-gray-100 transition-all duration-200 [&:-webkit-autofill]:bg-gray-50 [&:-webkit-autofill]:shadow-[0_0_0_1000px_#f9fafb_inset] [&:-webkit-autofill]:focus:bg-gray-100 [&:-webkit-autofill]:focus:shadow-[0_0_0_1000px_#f3f4f6_inset]"
                       placeholder="seu@email.com"
                       required
+                      autoComplete="email"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                     />
                   </div>
                 </div>

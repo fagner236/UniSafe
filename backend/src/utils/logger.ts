@@ -100,6 +100,7 @@ export class SystemLogger {
       // Em caso de erro ao salvar o log, apenas logar no console
       console.error('❌ Erro ao salvar log do sistema:', error);
       console.error('❌ Dados do log que falhou:', data);
+      return null;
     }
   }
 

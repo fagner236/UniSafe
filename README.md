@@ -86,15 +86,17 @@ Após executar o seed do banco de dados, você pode acessar o sistema com as seg
 
 ## 🔧 Versões e Changelog
 
-### 📊 **Versão Atual: v1.7.0** *(Agosto 2025)*
-- 🔐 **Sistema de controle de acesso por empresa** com menu condicional
-- 🎨 **Paleta de cores unificada** (#c9504c) em toda interface
-- 🔧 **Correção de problemas de codificação** de caracteres especiais
-- 🧹 **Limpeza de código** com 26 arquivos não utilizados removidos
-- 🔒 **Segurança aprimorada** com controle granular por empresa
-- 📱 **Interface adaptativa** por perfil de empresa
+### 📊 **Versão Atual: v1.7.2** *(Agosto 2025)*
+- 📊 **Melhorias no tópico "Motivo de Afastamento"** com limitação a 10 registros
+- 🔢 **Colunas "FILIADOS" e "NÃO FILIADOS"** na tabela de motivos
+- 🎨 **Formatação visual aprimorada** com cores (verde/vermelho) para filiação
+- 🏷️ **Nomenclatura atualizada** de "Total de Filiados" para "Total de Empregados"
+- 📈 **Cálculo automático** de distribuição de filiação por motivo
+- 🚀 **Performance otimizada** na interface do Dashboard
 
 ### 📈 **Histórico de Versões**
+- **v1.7.2** (Agosto 2025): Melhorias no Dashboard - Motivo de Afastamento e nomenclatura
+- **v1.7.1** (Agosto 2025): Correção da separação de responsabilidades entre Configurações e Gestão de Usuários
 - **v1.7.0** (Agosto 2025): Controle de acesso por empresa e correções de codificação
 - **v1.6.2** (Agosto 2025): Atualizações de dependências e melhorias no sistema
 - **v1.6.0** (Janeiro 2025): Sistema de verificação CNPJ e administração completa

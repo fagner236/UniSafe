@@ -1,7 +1,18 @@
 import { AlertCircle, Shield, User } from 'lucide-react';
 import { getVersionString } from '../config/version';
+import { clearCacheOnLogout } from '@/utils/cacheCleaner';
 
 const GhostUserMessage = () => {
+  const handleLogout = () => {
+    console.log('🚪 Usuário ghost fazendo logout...');
+    
+    // Limpeza completa de cache e memória
+    clearCacheOnLogout();
+    
+    // Redirecionar para login
+    window.location.href = '/login';
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full rounded-lg shadow-lg border p-8 text-center" style={{ backgroundColor: '#ffc9c0', borderColor: '#c9504c', borderWidth: '2px' }}>
@@ -47,10 +58,7 @@ const GhostUserMessage = () => {
         {/* Botão de logout */}
         <div className="mt-8 pt-6 border-t" style={{ borderColor: '#c9504c' }}>
           <button
-            onClick={() => {
-              localStorage.removeItem('token');
-              window.location.href = '/login';
-            }}
+            onClick={handleLogout}
             className="w-full text-white py-2 px-4 rounded-md transition-colors duration-200 hover:opacity-80"
             style={{ backgroundColor: '#c9504c' }}
           >

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import api from '../config/axios';
 
+
 interface CompanyUser {
   id_usuario: string;
   nome: string;
@@ -46,7 +47,7 @@ const Settings = () => {
       console.log('🔍 Tentando carregar usuários...');
       console.log('🔑 Token no localStorage:', localStorage.getItem('token') ? 'Existe' : 'Não existe');
       
-      const response = await api.get('/api/users/company');
+      const response = await api.get('/users/company');
       console.log('📡 Resposta da API:', response.data);
       
       if (response.data.success) {
@@ -93,7 +94,7 @@ const Settings = () => {
   // Salvar alterações do usuário
   const saveUser = async (userId: string) => {
     try {
-      const response = await api.put(`/api/users/${userId}`, editForm);
+      const response = await api.put(`/users/${userId}`, editForm);
       
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Usuário atualizado com sucesso!' });
@@ -120,7 +121,7 @@ const Settings = () => {
 
     try {
       setIsDeleting(userId);
-      const response = await api.delete(`/api/users/${userId}`);
+      const response = await api.delete(`/users/${userId}`);
       
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Usuário removido com sucesso!' });
@@ -404,6 +405,9 @@ const Settings = () => {
             </div>
           )}
         </div>
+
+
+
       </div>
 
       {/* Modal de Edição */}
@@ -437,6 +441,10 @@ const Settings = () => {
                     onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#c9504c] focus:border-[#c9504c] text-base"
                     style={{ height: '42px' }}
+                    autoComplete="email"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                   />
                 </div>
                 

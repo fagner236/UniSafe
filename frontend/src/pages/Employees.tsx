@@ -1,14 +1,910 @@
 import { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Search, Download, Eye, Edit, Trash, Filter, ChevronUp, ChevronDown } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Search, Download, Eye, Edit, Filter, ChevronUp, ChevronDown, X, User, Briefcase, FileText, Building, MapPin, Printer, FileSpreadsheet, Mail, Phone, Camera, Save, CameraIcon, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const Employees = () => {
   const { processedData, hasData } = useData();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'excel' | 'csv'>('excel');
+  const [isExporting, setIsExporting] = useState(false);
+  
+  // Estados para o modal de edição
+  const [editFormData, setEditFormData] = useState({
+    email: '',
+    celular: '',
+    foto: null as File | null
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [celularError, setCelularError] = useState('');
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraVideoRef, setCameraVideoRef] = useState<HTMLVideoElement | null>(null);
+  const [isLoadingEmployeeData, setIsLoadingEmployeeData] = useState(false);
+  const [forceRender, setForceRender] = useState(0);
+
+  // Monitorar mudanças no estado fotoPreview
+  useEffect(() => {
+    // Estado fotoPreview mudou
+  }, [fotoPreview]);
+
+  // Componente para preview da foto
+  const FotoPreview = ({ fotoUrl }: { fotoUrl: string | null }) => {
+    
+    if (!fotoUrl) {
+      return (
+        <div className="mb-4 p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+          <p className="text-gray-500">Nenhuma foto selecionada</p>
+        </div>
+      );
+    }
+
+    // Determinar o tipo de URL e construir a URL final
+    const getImageSrc = () => {
+      if (fotoUrl.startsWith('data:')) {
+        // URL de dados (data:image/jpeg;base64,...)
+        return fotoUrl;
+      } else if (fotoUrl.startsWith('http')) {
+        // URL HTTP completa
+        return fotoUrl;
+      } else {
+        // URL relativa, adicionar servidor
+        // Para desenvolvimento, usar localhost, para produção usar a URL base
+        const baseUrl = import.meta.env.MODE === 'production' 
+          ? window.location.origin 
+          : 'http://localhost:3000';
+        return `${baseUrl}${fotoUrl}`;
+      }
+    };
+
+    const imageSrc = getImageSrc();
+    const isDataUrl = fotoUrl.startsWith('data:');
+    const isSystemPhoto = fotoUrl.includes('uploads/empregados/');
+
+    return (
+      <div className="mb-4">
+        <div className="relative inline-block">
+          <img
+            key={`${fotoUrl}-${forceRender}`} // Força re-renderização quando fotoUrl ou forceRender mudam
+            src={imageSrc}
+            alt="Preview da foto"
+            className="w-32 h-32 object-cover rounded-lg border-2 border-gray-300"
+            onError={(e) => {
+              console.log('❌ Erro ao carregar imagem:', fotoUrl);
+              console.log('❌ URL tentada:', imageSrc);
+              console.log('❌ Tipo de URL:', isDataUrl ? 'data:' : 'http/relative');
+              e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik02NCA0MEM3My45NDExIDQwIDgyIDQ4LjA1ODkgODIgNThDODIgNjcuOTQxMSA3My45NDExIDc2IDY0IDc2QzU0LjA1ODkgNzYgNDYgNjcuOTQxMSA0NiA1OEM0NiA0OC4wNTg5IDU0LjA1ODkgNDAgNjQgNDBaIiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0zNiA5MkM0NS45NDExIDkyIDU0IDEwMC4wNTkgNTQgMTEwQzU0IDExOS45NDEgNDUuOTQxMSAxMjggMzYgMTI4QzI2LjA1ODkgMTI4IDE4IDExOS45NDEgMTggMTEwQzE4IDEwMC4wNTkgMjYuMDU4OSA5MiAzNiA5MloiIGZpbGw9IiM5Q0EzQUYiLz4KPHBhdGggZD0iTTkyIDkyQzEwMS45NDEgOTIgMTEwIDEwMC4wNTkgMTEwIDExMEMxMTAgMTE5Ljk0MSAxMDEuOTQxIDEyOCA5MiAxMjhDODIuMDU4OSAxMjggNzQgMTE5Ljk0MSA3NCAxMTBDNzQgMTAwLjA1OSA4Mi4wNTg5IDkyIDkyIDkyWiIgZmlsbD0iIzlDQTNBRiIvPgo8L3N2Zz4K';
+            }}
+            onLoad={() => {
+              console.log('✅ Imagem carregada com sucesso:', fotoUrl.substring(0, 50) + '...');
+            }}
+          />
+          <button
+            onClick={() => {
+              setEditFormData(prev => ({ ...prev, foto: null }));
+              setFotoPreview(null);
+            }}
+            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+            title="Remover foto"
+          >
+            ×
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-1">
+          {isSystemPhoto ? 'Foto atual do sistema' : isDataUrl ? 'Nova foto selecionada' : 'Foto do sistema'}
+        </p>
+      </div>
+    );
+  };
+
+  // Função para verificar se o usuário é admin da empresa dona do sistema
+  const isSystemOwnerAdmin = () => {
+    return user?.perfil === 'admin' && user?.empresa?.cnpj === '41.115.030/0001-20';
+  };
+
+  // Função para validar e-mail
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Função para aplicar máscara de celular
+  const formatCelular = (value: string) => {
+    // Remove tudo que não é dígito
+    const numbers = value.replace(/\D/g, '');
+    
+    // Aplica a máscara (XX) XXXXX-XXXX
+    if (numbers.length <= 2) {
+      return numbers;
+    } else if (numbers.length <= 7) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    } else {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+    }
+  };
+
+  // Função para validar celular
+  const validateCelular = (celular: string) => {
+    const numbers = celular.replace(/\D/g, '');
+    return numbers.length === 11;
+  };
+
+  // Função para criar preview da foto
+  const createFotoPreview = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setFotoPreview(result);
+    };
+    reader.onerror = (e) => {
+      console.error('❌ Erro ao ler arquivo:', e);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Função para iniciar câmera
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        } 
+      });
+      setCameraStream(stream);
+      setShowCamera(true);
+    } catch (error) {
+      console.error('Erro ao acessar câmera:', error);
+      alert('Não foi possível acessar a câmera. Verifique as permissões.');
+    }
+  };
+
+  // useEffect para configurar o stream da câmera
+  useEffect(() => {
+    if (cameraStream && cameraVideoRef) {
+      cameraVideoRef.srcObject = cameraStream;
+    }
+  }, [cameraStream, cameraVideoRef]);
+
+  // Função para parar câmera
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  // Função para capturar foto da câmera
+  const capturePhoto = () => {
+    if (cameraVideoRef) {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      canvas.width = cameraVideoRef.videoWidth;
+      canvas.height = cameraVideoRef.videoHeight;
+      
+      if (context) {
+        context.drawImage(cameraVideoRef, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], 'foto-camera.jpg', { type: 'image/jpeg' });
+            setEditFormData(prev => ({ ...prev, foto: file }));
+            createFotoPreview(file);
+            stopCamera();
+          }
+        }, 'image/jpeg', 0.8);
+      }
+    }
+  };
+
+  // Função para abrir o modal de visualização
+  const handleViewEmployee = async (employee: any) => {
+    setSelectedEmployee(employee);
+    
+    // Obter matrícula do empregado
+    const matricula = employee.matricula || employee.Matrícula || employee.MATRÍCULA || employee.Matricula;
+    
+    if (matricula) {
+      try {
+        // Buscar dados completos do empregado na tabela empregados
+        const response = await fetch(`/api/empregados/${matricula}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const empregadoData = result.data;
+          console.log('📊 Dados completos do empregado encontrados:', empregadoData);
+          
+          // Combinar dados da tabela com dados da API (incluindo foto)
+          setSelectedEmployee({
+            ...employee,
+            foto: empregadoData.foto,
+            email: empregadoData.email || employee.email || employee.Email || employee.EMAIL,
+            celular: empregadoData.celular || employee.celular || employee.Celular || employee.CELULAR
+          });
+        } else {
+          console.log('📊 Nenhum dado adicional encontrado para matrícula:', matricula);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao buscar dados do empregado:', error);
+      }
+    }
+    
+    setShowViewModal(true);
+  };
+
+  // Função para fechar o modal
+  const handleCloseModal = () => {
+    setShowViewModal(false);
+    setSelectedEmployee(null);
+  };
+
+  // Função para abrir o modal de edição
+  const handleEditEmployee = async (employee: any) => {
+    setSelectedEmployee(employee);
+    setIsLoadingEmployeeData(true);
+    
+    // Obter matrícula do empregado
+    const matricula = employee.matricula || employee.Matrícula || employee.MATRÍCULA || employee.Matricula;
+    
+    if (!matricula) {
+      alert('Erro: Matrícula não encontrada para este empregado');
+      setIsLoadingEmployeeData(false);
+      return;
+    }
+
+    try {
+      // Buscar dados existentes do empregado na tabela empregados
+      const response = await fetch(`/api/empregados/${matricula}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      let existingData = null;
+      if (response.ok) {
+        const result = await response.json();
+        existingData = result.data;
+        console.log('📊 Dados existentes encontrados:', existingData);
+      } else {
+        console.log('📊 Nenhum dado existente encontrado para matrícula:', matricula);
+      }
+
+      // Preparar dados do formulário
+      const celularValue = existingData?.celular || employee.celular || employee.Celular || employee.CELULAR || employee.telefone || employee.Telefone || employee.TELEFONE || '';
+      
+      setEditFormData({
+        email: existingData?.email || employee.email || employee.Email || employee.EMAIL || '',
+        celular: formatCelular(celularValue),
+        foto: null
+      });
+
+      // Configurar preview da foto se existir
+      if (existingData?.foto) {
+        // Definir a foto imediatamente
+        setFotoPreview(existingData.foto);
+        
+        // Forçar re-renderização para garantir que a imagem seja exibida
+        setTimeout(() => {
+          setForceRender(prev => prev + 1);
+        }, 50);
+      } else {
+        setFotoPreview(null);
+      }
+
+      setEmailError('');
+      setCelularError('');
+      setShowEditModal(true);
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados do empregado:', error);
+      
+      // Em caso de erro, usar dados básicos do employee
+      const celularValue = employee.celular || employee.Celular || employee.CELULAR || employee.telefone || employee.Telefone || employee.TELEFONE || '';
+      setEditFormData({
+        email: employee.email || employee.Email || employee.EMAIL || '',
+        celular: formatCelular(celularValue),
+        foto: null
+      });
+      setEmailError('');
+      setCelularError('');
+      setFotoPreview(null);
+      setShowEditModal(true);
+    } finally {
+      setIsLoadingEmployeeData(false);
+    }
+  };
+
+  // Função para fechar o modal de edição
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setSelectedEmployee(null);
+    setEditFormData({
+      email: '',
+      celular: '',
+      foto: null
+    });
+    setEmailError('');
+    setCelularError('');
+    setFotoPreview(null);
+    stopCamera();
+  };
+
+  // Função para lidar com mudanças no formulário de edição
+  const handleEditFormChange = (field: string, value: string | File | null) => {
+    if (field === 'email') {
+      const emailValue = value as string;
+      setEditFormData(prev => ({ ...prev, email: emailValue }));
+      
+      if (emailValue && !validateEmail(emailValue)) {
+        setEmailError('E-mail inválido');
+      } else {
+        setEmailError('');
+      }
+    } else if (field === 'celular') {
+      const celularValue = value as string;
+      const formattedCelular = formatCelular(celularValue);
+      setEditFormData(prev => ({ ...prev, celular: formattedCelular }));
+      
+      if (formattedCelular && !validateCelular(formattedCelular)) {
+        setCelularError('Celular deve ter 11 dígitos');
+      } else {
+        setCelularError('');
+      }
+    } else if (field === 'foto') {
+      const file = value as File | null;
+      setEditFormData(prev => ({ ...prev, foto: file }));
+      
+      if (file) {
+        createFotoPreview(file);
+      } else {
+        setFotoPreview(null);
+      }
+    }
+  };
+
+  // Função para salvar as alterações
+  const handleSaveEmployee = async () => {
+    // Validar campos antes de salvar
+    let hasErrors = false;
+    
+    if (editFormData.email && !validateEmail(editFormData.email)) {
+      setEmailError('E-mail inválido');
+      hasErrors = true;
+    }
+    
+    if (editFormData.celular && !validateCelular(editFormData.celular)) {
+      setCelularError('Celular deve ter 11 dígitos');
+      hasErrors = true;
+    }
+    
+    if (hasErrors) {
+      return;
+    }
+    
+    try {
+      setIsSaving(true);
+      
+      // Obter matrícula do empregado selecionado
+      const matricula = selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula;
+      
+      if (!matricula) {
+        alert('Erro: Matrícula não encontrada para este empregado');
+        return;
+      }
+
+      // Preparar dados para envio
+      const formData = new FormData();
+      formData.append('matricula', matricula);
+      formData.append('email', editFormData.email || '');
+      formData.append('celular', editFormData.celular || '');
+      
+      // Adicionar foto se existir
+      if (editFormData.foto) {
+        formData.append('foto', editFormData.foto);
+      }
+
+      console.log('Salvando empregado na tabela empregados:', {
+        matricula,
+        email: editFormData.email,
+        celular: editFormData.celular,
+        foto: editFormData.foto?.name
+      });
+      
+      // Fazer requisição para o backend
+      const response = await fetch('/api/empregados', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao salvar empregado');
+      }
+
+      console.log('✅ Empregado salvo com sucesso:', result.data);
+      
+      // Fechar modal após salvamento
+      handleCloseEditModal();
+      
+      // Mostrar notificação de sucesso
+      alert(result.message || 'Empregado salvo com sucesso!');
+      
+    } catch (error) {
+      console.error('❌ Erro ao salvar empregado:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Tente novamente.';
+      alert(`Erro ao salvar as alterações: ${errorMessage}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Funções para modal de exportação
+  const handleOpenExportModal = () => {
+    setShowExportModal(true);
+  };
+
+  const handleCloseExportModal = () => {
+    setShowExportModal(false);
+    setExportFormat('excel');
+  };
+
+  // Função para obter dados filtrados para exportação
+  const getFilteredDataForExport = () => {
+    if (!processedData) return [];
+    
+    let filteredData = [...processedData.employees];
+    
+    // Aplicar filtro de busca
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filteredData = filteredData.filter(employee => {
+        return Object.values(employee).some(value => 
+          String(value).toLowerCase().includes(searchLower)
+        );
+      });
+    }
+    
+    return filteredData;
+  };
+
+  // Função para exportar para Excel
+  const exportToExcel = () => {
+    const filteredData = getFilteredDataForExport();
+    
+    const data = filteredData.map(employee => {
+      const row: any = {};
+      processedData?.columns.forEach(column => {
+        const value = (employee as any)[column];
+        if (value !== null && value !== undefined) {
+          // Formatação específica para datas
+          if (column.toLowerCase().includes('data') && value instanceof Date) {
+            row[column] = value.toLocaleDateString('pt-BR');
+          } else if (column.toLowerCase().includes('valor') && typeof value === 'number') {
+            row[column] = `R$ ${value.toFixed(2).replace('.', ',')}`;
+          } else {
+            row[column] = String(value);
+          }
+        } else {
+          row[column] = '-';
+        }
+      });
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Funcionários');
+    
+    // Ajustar largura das colunas
+    const colWidths = processedData?.columns.map(() => ({ wch: 20 })) || [];
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, `Evia - UniSafe - Funcionários - ${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // Função para exportar para CSV
+  const exportToCSV = () => {
+    const filteredData = getFilteredDataForExport();
+    
+    const data = filteredData.map(employee => {
+      const row: any = {};
+      processedData?.columns.forEach(column => {
+        const value = (employee as any)[column];
+        if (value !== null && value !== undefined) {
+          if (column.toLowerCase().includes('data') && value instanceof Date) {
+            row[column] = value.toLocaleDateString('pt-BR');
+          } else if (column.toLowerCase().includes('valor') && typeof value === 'number') {
+            row[column] = `R$ ${value.toFixed(2).replace('.', ',')}`;
+          } else {
+            row[column] = String(value);
+          }
+        } else {
+          row[column] = '-';
+        }
+      });
+      return row;
+    });
+
+    const csvContent = [
+      processedData?.columns.join(','),
+      ...data.map(row => 
+        processedData?.columns.map(column => {
+          const value = row[column] || '';
+          // Escapar aspas duplas e quebras de linha
+          return `"${String(value).replace(/"/g, '""')}"`;
+        }).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Evia - UniSafe - Funcionários - ${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+
+  // Função principal de exportação
+  const handleExport = async () => {
+    try {
+      console.log('Iniciando exportação, formato:', exportFormat);
+      setIsExporting(true);
+      
+      switch (exportFormat) {
+        case 'excel':
+          console.log('Exportando para Excel...');
+          exportToExcel();
+          console.log('Excel exportado com sucesso');
+          break;
+        case 'csv':
+          console.log('Exportando para CSV...');
+          exportToCSV();
+          console.log('CSV exportado com sucesso');
+          break;
+        default:
+          throw new Error('Formato de exportação não suportado');
+      }
+      
+      // Fechar modal após exportação
+      setTimeout(() => {
+        handleCloseExportModal();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Erro detalhado ao exportar dados:', error);
+      console.error('Tipo do erro:', typeof error);
+      console.error('Mensagem do erro:', error instanceof Error ? error.message : 'Erro desconhecido');
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      
+      alert(`Erro ao exportar dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Função para imprimir dados do empregado
+  const handlePrintEmployee = () => {
+    if (!selectedEmployee) return;
+
+    // Criar uma nova janela para impressão
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    if (!printWindow) {
+      alert('Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está desabilitado.');
+      return;
+    }
+
+    // Formatar os dados para impressão
+    const formatValue = (value: any, column: string): string => {
+      if (!value) return '-';
+      
+      // Formatação específica para matrícula
+      const matriculaColumns = [
+        'Matrícula', 'MATRICULA', 'matricula', 'Matricula', 'Registration', 'REGISTRATION',
+        'Matricula', 'MATRÍCULA', 'matrícula', 'Matrícula', 'Registro', 'REGISTRO',
+        'Mat', 'MAT', 'mat', 'Reg', 'REG', 'reg'
+      ];
+      
+      // Formatação específica para mês/ano
+      const monthYearColumns = [
+        'Mês', 'MES', 'mes', 'Month', 'MONTH', 'month',
+        'Mês/Ano', 'MES/ANO', 'mes/ano', 'Month/Year', 'MONTH/YEAR', 'month/year',
+        'Período', 'PERIODO', 'periodo', 'Period', 'PERIOD', 'period',
+        'Referência', 'REFERENCIA', 'referencia', 'Reference', 'REFERENCE', 'reference'
+      ];
+      
+      // Formatação específica para datas
+      const dateColumns = [
+        'Data Nascimento', 'DATA NASCIMENTO', 'data nascimento', 'DataNascimento', 'Birth Date', 'BIRTH DATE',
+        'Data Admissão', 'DATA ADMISSÃO', 'data admissão', 'DataAdmissao', 'Admission Date', 'ADMISSION DATE',
+        'Data Afastamento', 'DATA AFASTAMENTO', 'data afastamento', 'DataAfastamento', 'Leave Date', 'LEAVE DATE',
+        'Data', 'DATA', 'data', 'Date', 'DATE',
+        'data_nasc', 'data_admissao', 'data_afast', 'data_criacao', 'data_atualizacao'
+      ];
+      
+      // Formatação específica para valores monetários
+      const currencyColumns = [
+        'Valor Mensalidade', 'VALOR MENSALIDADE', 'valor mensalidade', 'ValorMensalidade',
+        'Mensalidade', 'MENSALIDADE', 'mensalidade',
+        'Valor', 'VALOR', 'valor', 'Price', 'PRICE', 'price',
+        'Salário', 'SALARIO', 'salario', 'Salary', 'SALARY', 'salary',
+        'Remuneração', 'REMUNERACAO', 'remuneracao', 'Remuneration', 'REMUNERATION',
+        'valor_mensalidade'
+      ];
+      
+      // Aplicar formatações específicas
+      if (monthYearColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
+        return formatMonthYear(value);
+      } else if (matriculaColumns.includes(column)) {
+        return formatMatricula(value);
+      } else if (dateColumns.includes(column)) {
+        // Verificar se é campo de data de afastamento
+        const afastColumns = [
+          'Data Afastamento', 'DATA AFASTAMENTO', 'data afastamento', 'DataAfastamento', 
+          'Leave Date', 'LEAVE DATE', 'data_afast'
+        ];
+        if (afastColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
+          return formatAfastDate(value);
+        }
+        return value;
+      } else if (currencyColumns.includes(column)) {
+        const numValue = typeof value === 'number' ? value : Number(value.toString().replace(/[^\d,.-]/g, ''));
+        if (!isNaN(numValue)) {
+          return formatCurrency(numValue);
+        }
+      }
+      
+      return value.toString();
+    };
+
+    // Gerar HTML para impressão
+    const printHTML = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Dados do Empregado - ${selectedEmployee.nome || selectedEmployee.Nome || selectedEmployee.NOME || 'N/A'}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 10px;
+            color: #333;
+            line-height: 1.4;
+            font-size: 12px;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #1d335b;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+          }
+          .header h1 {
+            color: #1d335b;
+            margin: 0;
+            font-size: 18px;
+          }
+          .header p {
+            color: #666;
+            margin: 3px 0 0 0;
+            font-size: 11px;
+          }
+          .summary {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+          }
+          .summary h3 {
+            margin: 0 0 8px 0;
+            color: #1d335b;
+            font-size: 14px;
+          }
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+          }
+          .summary-item {
+            background: white;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+          }
+          .summary-label {
+            font-weight: bold;
+            color: #1d335b;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+          }
+          .summary-value {
+            color: #333;
+            font-size: 11px;
+          }
+          .employee-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+          }
+          .info-card {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #1d335b;
+          }
+          .info-card h3 {
+            margin: 0 0 8px 0;
+            color: #1d335b;
+            font-size: 13px;
+          }
+          .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 11px;
+          }
+          .info-item:last-child {
+            border-bottom: none;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #555;
+            text-transform: capitalize;
+            flex: 1;
+            margin-right: 8px;
+          }
+          .info-value {
+            color: #333;
+            text-align: right;
+            flex: 1;
+            word-wrap: break-word;
+            max-width: 150px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 10px;
+          }
+          @media print {
+            body { 
+              margin: 0; 
+              font-size: 11px;
+            }
+            .no-print { display: none; }
+            @page {
+              margin: 0.5in;
+              size: A4;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Dados do Empregado</h1>
+          <p>Relatório gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+        </div>
+
+        <div class="summary">
+          <h3>Resumo</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-label">Nome Completo</div>
+              <div class="summary-value">${selectedEmployee.nome || selectedEmployee.Nome || selectedEmployee.NOME || '-'}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Matrícula</div>
+              <div class="summary-value">${formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-')}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Cargo</div>
+              <div class="summary-value">${selectedEmployee.cargo || selectedEmployee.Cargo || selectedEmployee.CARGO || '-'}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Lotação</div>
+              <div class="summary-value">${selectedEmployee.lotacao || selectedEmployee.Lotacao || selectedEmployee.LOTAÇÃO || selectedEmployee.lotação || selectedEmployee.Lotacao || '-'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="employee-info">
+          <div class="info-card">
+            <h3>Informações Pessoais</h3>
+            ${processedData!.columns.slice(0, Math.ceil(processedData!.columns.length / 2)).map(column => {
+              const value = (selectedEmployee as any)[column];
+              const displayValue = formatValue(value, column);
+              return `
+                <div class="info-item">
+                  <span class="info-label">${column.replace(/_/g, ' ').toLowerCase()}</span>
+                  <span class="info-value">${displayValue}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          <div class="info-card">
+            <h3>Informações Adicionais</h3>
+            ${processedData!.columns.slice(Math.ceil(processedData!.columns.length / 2)).map(column => {
+              const value = (selectedEmployee as any)[column];
+              const displayValue = formatValue(value, column);
+              return `
+                <div class="info-item">
+                  <span class="info-label">${column.replace(/_/g, ' ').toLowerCase()}</span>
+                  <span class="info-value">${displayValue}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Evia - UniSafe - Sistema de Gestão de Dados</p>
+          <p>Este relatório foi gerado automaticamente pelo sistema</p>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            window.onafterprint = function() {
+              window.close();
+            };
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    // Escrever o HTML na nova janela
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+  };
+
+  // Função para formatar data de afastamento
+  const formatAfastDate = (value: any): string => {
+    if (!value) return '-';
+    
+    // Se for "01/01/1900", retorna "-"
+    if (value === '01/01/1900' || value === '1900-01-01' || value === '01-01-1900') {
+      return '-';
+    }
+    
+    return value.toString();
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -143,15 +1039,24 @@ const Employees = () => {
                 Nenhum arquivo carregado
               </h3>
               <p className="text-gray-500 mb-6">
-                Para visualizar os dados, faça upload de um arquivo Excel ou CSV na página de Upload.
+                {isSystemOwnerAdmin() 
+                  ? 'Para visualizar os dados, faça upload de um arquivo Excel ou CSV na página de Upload.'
+                  : 'Para visualizar os dados, é necessário que um administrador da empresa dona do sistema faça upload de um arquivo Excel ou CSV.'
+                }
               </p>
-              <a
-                href="/upload"
-                className="inline-flex items-center px-4 py-2 rounded-lg text-white font-medium transition-colors"
-                style={{ backgroundColor: '#1d335b' }}
-              >
-                Ir para Upload
-              </a>
+              {isSystemOwnerAdmin() ? (
+                <a
+                  href="/upload"
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-white font-medium transition-colors"
+                  style={{ backgroundColor: '#1d335b' }}
+                >
+                  Ir para Upload
+                </a>
+              ) : (
+                <div className="text-sm text-gray-500 bg-gray-100 px-4 py-2 rounded-lg">
+                  Apenas administradores da empresa dona do sistema podem fazer upload de arquivos
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -165,7 +1070,7 @@ const Employees = () => {
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#1d335b' }}>Base de Dados</h1>
           <p className="text-gray-600">
-            Visualizando {processedData!.summary.totalRecords.toLocaleString('pt-BR')} registros do arquivo: {processedData!.fileName}
+            Visualizando {processedData!.summary.totalRecords.toLocaleString('pt-BR')} registros do arquivo
           </p>
           <p className="text-sm text-gray-500 mt-1">
             Exibindo {startIndex + 1} a {Math.min(endIndex, sortedEmployees.length)} de {sortedEmployees.length.toLocaleString('pt-BR')} registros do arquivo
@@ -174,6 +1079,7 @@ const Employees = () => {
         <button 
           className="btn btn-primary"
           style={{ backgroundColor: '#1d335b' }}
+          onClick={handleOpenExportModal}
         >
           <Download className="h-4 w-4 mr-2" />
           Exportar
@@ -360,7 +1266,9 @@ const Employees = () => {
                           'Zona', 'ZONA', 'zona', 'Zone', 'ZONE', 'zone',
                           'Seção', 'SEÇÃO', 'seção', 'Section', 'SECTION', 'section',
                           'Observação', 'OBSERVAÇÃO', 'observação', 'Observation', 'OBSERVATION', 'observation',
-                          'Observações', 'OBSERVAÇÕES', 'observações', 'Observations', 'OBSERVATIONS', 'observations'
+                          'Observações', 'OBSERVAÇÕES', 'observações', 'Observations', 'OBSERVATIONS', 'observations',
+                          // Adicionar nomes das colunas do backend
+                          'motivo_afast'
                         ];
                         
                         if (monthYearColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
@@ -380,7 +1288,9 @@ const Employees = () => {
                             'Data Nascimento', 'DATA NASCIMENTO', 'data nascimento', 'DataNascimento', 'Birth Date', 'BIRTH DATE',
                             'Data Admissão', 'DATA ADMISSÃO', 'data admissão', 'DataAdmissao', 'Admission Date', 'ADMISSION DATE',
                             'Data Afastamento', 'DATA AFASTAMENTO', 'data afastamento', 'DataAfastamento', 'Leave Date', 'LEAVE DATE',
-                            'Data', 'DATA', 'data', 'Date', 'DATE'
+                            'Data', 'DATA', 'data', 'Date', 'DATE',
+                            // Adicionar nomes das colunas do backend
+                            'data_nasc', 'data_admissao', 'data_afast', 'data_criacao', 'data_atualizacao'
                           ];
                           if (dateColumns.includes(column)) {
                             try {
@@ -397,7 +1307,9 @@ const Employees = () => {
                               'Mensalidade', 'MENSALIDADE', 'mensalidade',
                               'Valor', 'VALOR', 'valor', 'Price', 'PRICE', 'price',
                               'Salário', 'SALARIO', 'salario', 'Salary', 'SALARY', 'salary',
-                              'Remuneração', 'REMUNERACAO', 'remuneracao', 'Remuneration', 'REMUNERATION'
+                              'Remuneração', 'REMUNERACAO', 'remuneracao', 'Remuneration', 'REMUNERATION',
+                              // Adicionar nome da coluna do backend
+                              'valor_mensalidade'
                             ];
                             
                             if (currencyColumns.includes(column)) {
@@ -431,22 +1343,23 @@ const Employees = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
                           <button 
-                            className="text-blue-600 hover:text-blue-900"
+                            onClick={() => handleViewEmployee(employee)}
+                            className="text-blue-600 hover:text-blue-900 transition-colors"
                             title="Visualizar"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button 
-                            className="text-green-600 hover:text-green-900"
-                            title="Editar"
+                            onClick={() => handleEditEmployee(employee)}
+                            disabled={isLoadingEmployeeData}
+                            className="text-green-600 hover:text-green-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={isLoadingEmployeeData ? "Carregando dados..." : "Editar"}
                           >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button 
-                            className="text-red-600 hover:text-red-900"
-                            title="Excluir"
-                          >
-                            <Trash className="h-4 w-4" />
+                            {isLoadingEmployeeData ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                            ) : (
+                              <Edit className="h-4 w-4" />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -562,6 +1475,728 @@ const Employees = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de Visualização do Empregado */}
+      {showViewModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-full" style={{ backgroundColor: '#1d335b' }}>
+                  <User className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Dados do Empregado
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    Visualização completa das informações
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handlePrintEmployee}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white rounded-md transition-colors"
+                  style={{ backgroundColor: '#1d335b' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2a4a7a'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1d335b'}
+                  title="Imprimir dados do empregado"
+                >
+                  <Printer className="h-4 w-4" />
+                  <span>Imprimir</span>
+                </button>
+                <button
+                  onClick={handleCloseModal}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Fechar"
+                >
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Informações Pessoais */}
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <User className="h-5 w-5" style={{ color: '#1d335b' }} />
+                    <h3 className="text-lg font-medium text-gray-900">Informações Pessoais</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {processedData!.columns.map((column) => {
+                      const value = (selectedEmployee as any)[column];
+                      let displayValue = value || '-';
+                      
+                      // Formatação específica para diferentes tipos de dados
+                      const matriculaColumns = [
+                        'Matrícula', 'MATRICULA', 'matricula', 'Matricula', 'Registration', 'REGISTRATION',
+                        'Matricula', 'MATRÍCULA', 'matrícula', 'Matrícula', 'Registro', 'REGISTRO',
+                        'Mat', 'MAT', 'mat', 'Reg', 'REG', 'reg'
+                      ];
+                      
+                      const monthYearColumns = [
+                        'Mês', 'MES', 'mes', 'Month', 'MONTH', 'month',
+                        'Mês/Ano', 'MES/ANO', 'mes/ano', 'Month/Year', 'MONTH/YEAR', 'month/year',
+                        'Período', 'PERIODO', 'periodo', 'Period', 'PERIOD', 'period',
+                        'Referência', 'REFERENCIA', 'referencia', 'Reference', 'REFERENCE', 'reference'
+                      ];
+                      
+                      const dateColumns = [
+                        'Data Nascimento', 'DATA NASCIMENTO', 'data nascimento', 'DataNascimento', 'Birth Date', 'BIRTH DATE',
+                        'Data Admissão', 'DATA ADMISSÃO', 'data admissão', 'DataAdmissao', 'Admission Date', 'ADMISSION DATE',
+                        'Data Afastamento', 'DATA AFASTAMENTO', 'data afastamento', 'DataAfastamento', 'Leave Date', 'LEAVE DATE',
+                        'Data', 'DATA', 'data', 'Date', 'DATE',
+                        'data_nasc', 'data_admissao', 'data_afast', 'data_criacao', 'data_atualizacao'
+                      ];
+                      
+                      const currencyColumns = [
+                        'Valor Mensalidade', 'VALOR MENSALIDADE', 'valor mensalidade', 'ValorMensalidade',
+                        'Mensalidade', 'MENSALIDADE', 'mensalidade',
+                        'Valor', 'VALOR', 'valor', 'Price', 'PRICE', 'price',
+                        'Salário', 'SALARIO', 'salario', 'Salary', 'SALARY', 'salary',
+                        'Remuneração', 'REMUNERACAO', 'remuneracao', 'Remuneration', 'REMUNERATION',
+                        'valor_mensalidade'
+                      ];
+                      
+                      // Aplicar formatações específicas
+                      if (monthYearColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
+                        displayValue = formatMonthYear(value);
+                      } else if (matriculaColumns.includes(column)) {
+                        displayValue = formatMatricula(value);
+                      } else if (dateColumns.includes(column)) {
+                        // Verificar se é campo de data de afastamento
+                        const afastColumns = [
+                          'Data Afastamento', 'DATA AFASTAMENTO', 'data afastamento', 'DataAfastamento', 
+                          'Leave Date', 'LEAVE DATE', 'data_afast'
+                        ];
+                        if (afastColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
+                          displayValue = formatAfastDate(value);
+                        } else {
+                          displayValue = value;
+                        }
+                      } else if (currencyColumns.includes(column)) {
+                        const numValue = typeof value === 'number' ? value : Number(value.toString().replace(/[^\d,.-]/g, ''));
+                        if (!isNaN(numValue)) {
+                          displayValue = formatCurrency(numValue);
+                        }
+                      }
+                      
+                      return (
+                        <div key={column} className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm font-medium text-gray-600 capitalize">
+                            {column.replace(/_/g, ' ').toLowerCase()}
+                          </span>
+                          <span className="text-sm text-gray-900 text-right max-w-xs truncate" title={displayValue}>
+                            {displayValue}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Resumo Visual */}
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <FileText className="h-5 w-5" style={{ color: '#1d335b' }} />
+                    <h3 className="text-lg font-medium text-gray-900">Resumo</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Card de Informações Principais */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-blue-100 rounded-full">
+                          <User className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Nome Completo</h4>
+                          <p className="text-sm text-gray-600">
+                            {selectedEmployee.nome || selectedEmployee.Nome || selectedEmployee.NOME || '-'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card de Matrícula */}
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-green-100 rounded-full">
+                          <Briefcase className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Matrícula</h4>
+                          <p className="text-sm text-gray-600">
+                            {formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card de Cargo */}
+                    <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-4 rounded-lg border border-purple-200">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-purple-100 rounded-full">
+                          <Building className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Cargo</h4>
+                          <p className="text-sm text-gray-600">
+                            {selectedEmployee.cargo || selectedEmployee.Cargo || selectedEmployee.CARGO || '-'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card de Lotação */}
+                    <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-lg border border-indigo-200">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-indigo-100 rounded-full">
+                          <MapPin className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">Lotação</h4>
+                          <p className="text-sm text-gray-600">
+                            {selectedEmployee.lotacao || selectedEmployee.Lotacao || selectedEmployee.LOTAÇÃO || selectedEmployee.lotação || selectedEmployee.Lotacao || '-'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card da Foto do Empregado */}
+                    {selectedEmployee.foto && (
+                      <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-4 rounded-lg border border-gray-200">
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="relative">
+                            <img
+                              src={(() => {
+                                const fotoUrl = selectedEmployee.foto;
+                                if (fotoUrl.startsWith('http')) {
+                                  return fotoUrl;
+                                } else {
+                                  // Para desenvolvimento, usar localhost, para produção usar a URL base
+                                  const baseUrl = import.meta.env.MODE === 'production' 
+                                    ? window.location.origin 
+                                    : 'http://localhost:3000';
+                                  return `${baseUrl}${fotoUrl}`;
+                                }
+                              })()}
+                              alt="Foto do Empregado"
+                              className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-lg"
+                              onError={(e) => {
+                                // Se a imagem não carregar, esconder o elemento
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                            <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white rounded-full p-1">
+                              <Camera className="h-3 w-3" />
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <h4 className="font-medium text-gray-900 text-sm">Foto do Empregado</h4>
+                            <p className="text-xs text-gray-500">Matrícula: {selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="flex justify-end p-6 border-t border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+              <button
+                onClick={handleCloseModal}
+                className="px-6 py-2 text-sm font-medium text-white rounded-md transition-colors"
+                style={{ backgroundColor: '#1d335b' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2a4a7a'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1d335b'}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição */}
+      {showEditModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Editar Empregado
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Atualize as informações de contato do empregado
+                </p>
+              </div>
+              <button
+                onClick={handleCloseEditModal}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Fechar"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1 modal-scroll">
+              {/* Indicador de carregamento */}
+              {isLoadingEmployeeData && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center space-x-3">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <span className="text-sm text-gray-600">Carregando dados do empregado...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Informações do Empregado (Somente Leitura) */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Informações do Empregado</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Nome</label>
+                    <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border flex-1 flex items-center">
+                      {selectedEmployee.nome || selectedEmployee.Nome || selectedEmployee.NOME || '-'}
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Matrícula</label>
+                    <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border flex-1 flex items-center">
+                      {formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-')}
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Lotação</label>
+                    <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border flex-1 flex items-center">
+                      {selectedEmployee.lotacao || selectedEmployee.Lotacao || selectedEmployee.LOTAÇÃO || selectedEmployee.lotação || selectedEmployee.Lotacao || '-'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Formulário de Edição */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-gray-900">Informações de Contato</h4>
+                
+                {/* Campo E-mail */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Mail className="h-4 w-4 inline mr-2" />
+                    E-mail
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={editFormData.email}
+                      onChange={(e) => handleEditFormChange('email', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 ${
+                        emailError ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Digite o e-mail do empregado"
+                    />
+                    {editFormData.email && (
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        {emailError ? (
+                          <AlertCircle className="h-5 w-5 text-red-500" />
+                        ) : (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {emailError && (
+                    <p className="mt-1 text-sm text-red-600">{emailError}</p>
+                  )}
+                </div>
+
+                {/* Campo Celular */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Phone className="h-4 w-4 inline mr-2" />
+                    Celular
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      value={editFormData.celular}
+                      onChange={(e) => handleEditFormChange('celular', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 ${
+                        celularError ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="(XX) XXXXX-XXXX"
+                      maxLength={15}
+                    />
+                    {editFormData.celular && (
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        {celularError ? (
+                          <AlertCircle className="h-5 w-5 text-red-500" />
+                        ) : (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {celularError && (
+                    <p className="mt-1 text-sm text-red-600">{celularError}</p>
+                  )}
+                </div>
+
+                {/* Campo Foto */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Camera className="h-4 w-4 inline mr-2" />
+                    Foto do Empregado
+                  </label>
+                  
+                  {/* Preview da Foto */}
+                  <FotoPreview key={forceRender} fotoUrl={fotoPreview} />
+                  
+                  {/* Opções de Upload */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Upload de Arquivo */}
+                    <div className="border-2 border-gray-300 border-dashed rounded-md p-4 hover:border-gray-400 transition-colors">
+                      <div className="text-center">
+                        <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                        <label
+                          htmlFor="foto-upload"
+                          className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-500"
+                        >
+                          Carregar Foto
+                        </label>
+                        <input
+                          id="foto-upload"
+                          name="foto-upload"
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            handleEditFormChange('foto', file);
+                          }}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF</p>
+                      </div>
+                    </div>
+                    
+                    {/* Tirar Foto */}
+                    <div 
+                      className="border-2 border-gray-300 border-dashed rounded-md p-4 hover:border-gray-400 transition-colors cursor-pointer"
+                      onClick={startCamera}
+                    >
+                      <div className="text-center">
+                        <CameraIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                        <span className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                          Tirar Foto
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">Usar câmera</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {editFormData.foto && (
+                    <p className="text-sm text-green-600 mt-2">
+                      ✓ Arquivo selecionado: {editFormData.foto.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Aviso sobre campos não editáveis */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <User className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">
+                      Campos Não Editáveis
+                    </h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p>Os campos Nome, Matrícula e Lotação não podem ser editados pois fazem parte dos dados originais da base de dados.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Indicador de scroll */}
+              <div className="text-center py-4">
+                <div className="inline-flex items-center text-xs text-gray-400">
+                  <div className="w-1 h-1 bg-gray-300 rounded-full mr-1"></div>
+                  <div className="w-1 h-1 bg-gray-300 rounded-full mr-1"></div>
+                  <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
+                  <span className="ml-2">Role para baixo para acessar os botões</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 flex-shrink-0" style={{ backgroundColor: '#f8fafc' }}>
+              <button
+                onClick={handleCloseEditModal}
+                className="px-6 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50"
+                style={{ 
+                  backgroundColor: '#ffc9c0',
+                  color: '#1d335b',
+                  border: '1px solid #ffc9c0'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5b5b0';
+                  e.currentTarget.style.borderColor = '#f5b5b0';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffc9c0';
+                  e.currentTarget.style.borderColor = '#ffc9c0';
+                }}
+                disabled={isSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEmployee}
+                disabled={isSaving || !!emailError || !!celularError}
+                className="px-6 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 flex items-center space-x-2"
+                style={{ 
+                  backgroundColor: isSaving || !!emailError || !!celularError ? '#9ca3af' : '#c9504c',
+                  border: '1px solid transparent'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSaving && !emailError && !celularError) {
+                    e.currentTarget.style.backgroundColor = '#b03e3a';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSaving && !emailError && !celularError) {
+                    e.currentTarget.style.backgroundColor = '#c9504c';
+                  }
+                }}
+              >
+                {isSaving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Salvando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    <span>Salvar Alterações</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal da Câmera */}
+      {showCamera && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header do Modal da Câmera */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Tirar Foto do Empregado
+              </h3>
+              <button
+                onClick={stopCamera}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Fechar"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Conteúdo da Câmera */}
+            <div className="p-4">
+              <div className="relative">
+                <video
+                  ref={(ref) => setCameraVideoRef(ref)}
+                  autoPlay
+                  playsInline
+                  className="w-full h-64 bg-gray-900 rounded-lg"
+                  style={{ transform: 'scaleX(-1)' }}
+                />
+                
+                {/* Overlay de instruções */}
+                <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-3 py-2 rounded text-sm">
+                  Posicione o rosto no centro da tela
+                </div>
+              </div>
+              
+              {/* Controles da Câmera */}
+              <div className="flex justify-center space-x-4 mt-4">
+                <button
+                  onClick={stopCamera}
+                  className="px-6 py-2 text-sm font-medium rounded-md transition-colors"
+                  style={{ 
+                    backgroundColor: '#ffc9c0',
+                    color: '#1d335b',
+                    border: '1px solid #ffc9c0'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f5b5b0';
+                    e.currentTarget.style.borderColor = '#f5b5b0';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ffc9c0';
+                    e.currentTarget.style.borderColor = '#ffc9c0';
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={capturePhoto}
+                  className="px-6 py-2 text-sm font-medium text-white rounded-md transition-colors flex items-center space-x-2"
+                  style={{ backgroundColor: '#c9504c' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#b03e3a';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#c9504c';
+                  }}
+                >
+                  <Camera className="h-4 w-4" />
+                  <span>Capturar Foto</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Exportação */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Exportar Dados de Funcionários
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Escolha o formato e exporte os dados filtrados da tabela
+                </p>
+              </div>
+              <button
+                onClick={handleCloseExportModal}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Fechar"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="p-6 space-y-6">
+              {/* Seleção de Formato */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Formato de Exportação
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setExportFormat('excel')}
+                    className={`p-4 border-2 rounded-lg transition-all ${
+                      exportFormat === 'excel'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <FileSpreadsheet className="h-8 w-8 mx-auto mb-2" />
+                    <div className="text-sm font-medium">Excel</div>
+                    <div className="text-xs text-gray-500">.xlsx</div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setExportFormat('csv')}
+                    className={`p-4 border-2 rounded-lg transition-all ${
+                      exportFormat === 'csv'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <FileText className="h-8 w-8 mx-auto mb-2" />
+                    <div className="text-sm font-medium">CSV</div>
+                    <div className="text-xs text-gray-500">.csv</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Informações sobre os dados */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Dados que serão exportados:</h4>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>• Total de registros: {getFilteredDataForExport().length.toLocaleString('pt-BR')}</p>
+                  <p>• Colunas incluídas: {processedData?.columns.length || 0}</p>
+                  <p>• Filtros aplicados: {searchTerm ? 'Busca por "' + searchTerm + '"' : 'Nenhum filtro'}</p>
+                </div>
+              </div>
+
+              {/* Aviso sobre formatação */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <FileText className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">
+                      Formatação Automática
+                    </h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p>Os dados serão formatados automaticamente:</p>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Datas no formato brasileiro (DD/MM/AAAA)</li>
+                        <li>Valores monetários com R$ e vírgula decimal</li>
+                        <li>Campos vazios serão exibidos como "-"</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200" style={{ backgroundColor: '#f8fafc' }}>
+              <button
+                onClick={handleCloseExportModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="px-6 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50"
+                style={{ backgroundColor: '#1d335b' }}
+              >
+                {isExporting ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Exportando...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Download className="h-4 w-4" />
+                    <span>Exportar</span>
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Upload, BarChart3 } from 'lucide-react';
+import { Building2, BarChart3, Shield, Zap, Database } from 'lucide-react';
 import { getVersionString } from '../config/version';
 
 const LoginSidebar = () => {
@@ -23,10 +23,42 @@ const LoginSidebar = () => {
           </h1>
         </div>
         
+
+        
         <div className="space-y-6 text-left max-w-md mx-auto">
           <div className="flex items-center space-x-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <div className="bg-red-100 rounded-full p-3 shadow-sm">
-              <Building2 className="h-6 w-6 text-red-600" />
+            <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-full p-3 shadow-sm">
+              <Zap className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#2f4a8c] tracking-wide">Uploads Ultra-Rápidos</h3>
+              <p className="text-gray-600 text-sm">Processamento 2.5x mais rápido com sistema 100% em memória</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-4 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+            <div className="bg-gradient-to-r from-green-100 to-blue-100 rounded-full p-3 shadow-sm">
+              <Shield className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#2f4a8c] tracking-wide">Segurança Máxima</h3>
+              <p className="text-gray-600 text-sm">Eliminação completa de arquivos físicos expostos</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-4 animate-slide-up" style={{ animationDelay: '0.6s' }}>
+            <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-full p-3 shadow-sm">
+              <Database className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#2f4a8c] tracking-wide">Escalabilidade Ilimitada</h3>
+              <p className="text-gray-600 text-sm">Sem restrições de espaço em disco</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-4 animate-slide-up" style={{ animationDelay: '0.8s' }}>
+            <div className="bg-gradient-to-r from-orange-100 to-red-100 rounded-full p-3 shadow-sm">
+              <Building2 className="h-6 w-6 text-orange-600" />
             </div>
             <div>
               <h3 className="font-bold text-[#2f4a8c] tracking-wide">Gestão Completa</h3>
@@ -34,19 +66,9 @@ const LoginSidebar = () => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-4 animate-slide-up" style={{ animationDelay: '0.4s' }}>
-            <div className="bg-red-100 rounded-full p-3 shadow-sm">
-              <Upload className="h-6 w-6 text-red-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-[#2f4a8c] tracking-wide">Upload de Arquivos</h3>
-              <p className="text-gray-600 text-sm">Importe dados via Excel (.xlsx, .xls) e CSV de forma simples</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-4 animate-slide-up" style={{ animationDelay: '0.6s' }}>
-            <div className="bg-red-100 rounded-full p-3 shadow-sm">
-              <BarChart3 className="h-6 w-6 text-red-600" />
+          <div className="flex items-center space-x-4 animate-slide-up" style={{ animationDelay: '1.0s' }}>
+            <div className="bg-gradient-to-r from-indigo-100 to-blue-100 rounded-full p-3 shadow-sm">
+              <BarChart3 className="h-6 w-6 text-indigo-600" />
             </div>
             <div>
               <h3 className="font-bold text-[#2f4a8c] tracking-wide">Relatórios Avançados</h3>
@@ -56,12 +78,12 @@ const LoginSidebar = () => {
         </div>
         
         {/* Versão do Sistema e Copyright */}
-        <div className="mt-8 pt-6 border-t border-gray-200 animate-fade-in" style={{ animationDelay: '0.8s' }}>
+        <div className="mt-8 pt-6 border-t border-gray-200 animate-fade-in" style={{ animationDelay: '1.2s' }}>
           <p className="text-xs text-gray-500 tracking-wide mb-2">
             Versão {getVersionString()}
           </p>
           <p className="text-xs text-gray-400 tracking-wide">
-            © 2025 Via Eletrônica Ltda. Todos os direitos reservados.
+            © 2025 Evia - Todos os direitos reservados.
           </p>
         </div>
       </div>

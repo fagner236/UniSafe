@@ -3,7 +3,7 @@ import { body } from 'express-validator';
 import { register, login, getProfile, updateProfile } from '../controllers/authController';
 import { auth } from '../middleware/auth';
 // import { authRateLimit, validateLogin, validateRegister } from '../middleware/security';
-import { validateLogin, validateRegister } from '../middleware/security';
+// import { validateLogin, validateRegister } from '../middleware/security';
 
 const router = express.Router();
 

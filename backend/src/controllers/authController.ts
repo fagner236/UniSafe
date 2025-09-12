@@ -197,7 +197,7 @@ export const login = async (req: Request, res: Response) => {
       message: 'Login realizado com sucesso',
       data: {
         user: {
-          id: user.id_usuario,
+          id_usuario: user.id_usuario,
           nome: user.nome,
           email: user.email,
           perfil: user.perfil,
@@ -226,7 +226,8 @@ export const getProfile = async (req: any, res: Response) => {
         email: true,
         perfil: true,
         data_criacao: true,
-        id_empresa: true
+        id_empresa: true,
+        base_sindical: true
       }
     });
 
@@ -261,7 +262,13 @@ export const getProfile = async (req: any, res: Response) => {
     return res.json({
       success: true,
       data: {
-        ...user,
+        id_usuario: user.id_usuario,
+        nome: user.nome,
+        email: user.email,
+        perfil: user.perfil,
+        data_criacao: user.data_criacao,
+        id_empresa: user.id_empresa,
+        base_sindical: user.base_sindical,
         empresa: empresaInfo
       }
     });

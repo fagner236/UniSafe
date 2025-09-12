@@ -6,7 +6,7 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // GET /api/employees
-// TODO: Implementar modelo Employee no schema Prisma
+// Nota: Os dados dos funcionários estão no modelo BaseDados no schema Prisma
 router.get('/', auth, async (req, res) => {
   try {
     // Temporariamente retornando dados vazios até implementar o modelo Employee

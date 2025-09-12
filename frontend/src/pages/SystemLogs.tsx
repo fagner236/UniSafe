@@ -95,9 +95,9 @@ const SystemLogs = () => {
       });
 
       console.log('🔍 Parâmetros da busca:', params.toString());
-      console.log('🔍 URL da API:', `/api/admin/logs?${params}`);
+      console.log('🔍 URL da API:', `/admin/logs?${params}`);
 
-      const response = await api.get(`/api/admin/logs?${params}`);
+      const response = await api.get(`/admin/logs?${params}`);
       console.log('📡 Resposta da API:', response);
       
       if (response.data.success) {
@@ -121,7 +121,7 @@ const SystemLogs = () => {
   const fetchLogStats = async () => {
     try {
       console.log('📊 Buscando estatísticas dos logs...');
-      const response = await api.get('/api/admin/logs/stats');
+      const response = await api.get('/admin/logs/stats');
       console.log('📡 Resposta das estatísticas:', response);
       
       if (response.data.success) {
@@ -143,7 +143,7 @@ const SystemLogs = () => {
         ...filters
       });
       
-      const response = await api.get(`/api/admin/logs/export?${params}`, {
+      const response = await api.get(`/admin/logs/export?${params}`, {
         responseType: 'blob'
       });
 

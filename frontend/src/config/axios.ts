@@ -1,5 +1,6 @@
 import axios from 'axios';
 import config from './environment';
+import { clearAuthCache } from '@/utils/cacheCleaner';
 
 // Configuração base do axios
 const api = axios.create({
@@ -17,17 +18,11 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Token incluído na requisição:', token.substring(0, 20) + '...');
-    } else {
-      console.log('⚠️ Nenhum token encontrado no localStorage');
     }
     
-    console.log('🚀 Requisição sendo enviada:', config.method?.toUpperCase(), config.url);
-    console.log('🔑 Headers da requisição:', config.headers);
     return config;
   },
   (error) => {
-    console.error('❌ Erro na requisição:', error);
     return Promise.reject(error);
   }
 );
@@ -35,11 +30,20 @@ api.interceptors.request.use(
 // Interceptor para respostas
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Resposta recebida:', response.status, response.config.url);
     return response;
   },
   (error) => {
-    console.error('❌ Erro na resposta:', error.response?.status, error.response?.data);
+    // Se o token for inválido, limpar cache de autenticação
+    if (error.response?.status === 401) {
+      console.log('🔒 Token inválido detectado, limpando cache de autenticação...');
+      clearAuthCache();
+      
+      // Redirecionar para login se estiver em uma página protegida
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    
     return Promise.reject(error);
   }
 );

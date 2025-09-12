@@ -73,8 +73,10 @@ const Register = () => {
       // Remover formatação do CNPJ para a API
       const cleanCNPJ = cnpj.replace(/\D/g, '');
       console.log('🔍 Verificando CNPJ:', cleanCNPJ);
+      console.log('🔍 URL da API:', `/companies/check-cnpj?cnpj=${cleanCNPJ}`);
+      console.log('🔍 Base URL configurada:', import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
       
-      const response = await api.get(`/api/companies/check-cnpj?cnpj=${cleanCNPJ}`);
+      const response = await api.get(`/companies/check-cnpj?cnpj=${cleanCNPJ}`);
       console.log('📡 Resposta da verificação:', response.data);
       
       if (response.data.success) {
@@ -140,7 +142,7 @@ const Register = () => {
     try {
       console.log('🏢 Enviando dados da empresa:', companyData);
       
-      const response = await api.post('/api/companies', companyData);
+      const response = await api.post('/companies', companyData);
       console.log('📡 Resposta da API de empresa:', response.data);
       
       if (response.data.success) {
@@ -182,7 +184,7 @@ const Register = () => {
       
       console.log('📤 Dados do usuário para envio:', userDataToSend);
       
-      const response = await api.post('/api/auth/register', userDataToSend);
+      const response = await api.post('/auth/register', userDataToSend);
       console.log('📡 Resposta da API de usuário:', response.data);
       
       if (response.data.success) {
@@ -600,6 +602,10 @@ const Register = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2f4a8c] focus:border-[#2f4a8c] hover:border-[#1d335b] bg-gray-50 focus:bg-gray-100 transition-all duration-200"
                     placeholder="seu@email.com"
                     required
+                    autoComplete="email"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                   />
                 </div>
 
@@ -615,6 +621,7 @@ const Register = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#2f4a8c] focus:border-[#2f4a8c] hover:border-[#1d335b] bg-gray-50 focus:bg-gray-100 transition-all duration-200"
                     placeholder="Sua senha"
                     required
+                    autoComplete="new-password"
                   />
                 </div>
 
@@ -630,6 +637,7 @@ const Register = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2f4a8c] focus:border-[#2f4a8c] hover:border-[#1d335b] bg-gray-50 focus:bg-gray-100 transition-all duration-200"
                     placeholder="Confirme sua senha"
                     required
+                    autoComplete="new-password"
                   />
                 </div>
 

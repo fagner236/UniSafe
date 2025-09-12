@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth';
+import * as bcrypt from 'bcryptjs';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -25,6 +26,60 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     });
   }
 };
+
+// GET /api/users/bases-sindicais - Buscar todas as bases sindicais disponíveis dos dados processados
+router.get('/bases-sindicais', auth, requireAdmin, async (req: any, res: any) => {
+  try {
+    console.log('📊 === ROTA /api/users/bases-sindicais CHAMADA ===');
+    console.log('📊 Usuário logado ID:', req.user.id_usuario);
+    
+    // Buscar bases sindicais dos dados processados via upload controller
+    const response = await fetch(`${req.protocol}://${req.get('host')}/api/upload/bases-sindicais`, {
+      method: 'GET',
+      headers: {
+        'Authorization': req.headers.authorization || '',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.log('⚠️ Erro ao buscar bases sindicais dos uploads:', response.status);
+      // Fallback: retornar lista vazia se não conseguir buscar dos uploads
+      return res.json({
+        success: true,
+        data: [],
+        message: 'Nenhuma base sindical encontrada nos dados processados'
+      });
+    }
+
+    const uploadData = await response.json() as { success: boolean; data: string[] };
+    
+    if (uploadData.success && uploadData.data) {
+      console.log('📊 Bases sindicais encontradas nos uploads:', uploadData.data.length);
+      return res.json({
+        success: true,
+        data: uploadData.data,
+        message: `${uploadData.data.length} bases sindicais encontradas nos dados processados`
+      });
+    } else {
+      console.log('⚠️ Nenhuma base sindical encontrada nos uploads');
+      return res.json({
+        success: true,
+        data: [],
+        message: 'Nenhuma base sindical encontrada nos dados processados'
+      });
+    }
+
+  } catch (error) {
+    console.error('Erro ao buscar bases sindicais:', error);
+    // Em caso de erro, retornar lista vazia
+    return res.json({
+      success: true,
+      data: [],
+      message: 'Erro ao buscar bases sindicais, retornando lista vazia'
+    });
+  }
+});
 
 // GET /api/users/stats - Buscar estatísticas de TODOS os usuários do sistema
 router.get('/stats', auth, requireAdmin, async (req: any, res: any) => {
@@ -128,6 +183,7 @@ router.get('/company', auth, requireAdmin, async (req: any, res: any) => {
         nome: true,
         email: true,
         perfil: true,
+        base_sindical: true,
         data_criacao: true,
         data_atualizacao: true,
         id_empresa: true,
@@ -196,6 +252,7 @@ router.get('/system', auth, requireAdmin, async (req: any, res: any) => {
         nome: true,
         email: true,
         perfil: true,
+        base_sindical: true,
         data_criacao: true,
         data_atualizacao: true,
         id_empresa: true,
@@ -235,16 +292,18 @@ router.get('/system', auth, requireAdmin, async (req: any, res: any) => {
 // POST /api/users - Criar novo usuário
 router.post('/', auth, requireAdmin, async (req: any, res: any) => {
   try {
-    const { nome, email, perfil } = req.body;
+    const { nome, email, perfil, id_empresa, base_sindical } = req.body;
 
     console.log('➕ === ROTA /api/users (CREATE) CHAMADA ===');
-    console.log('➕ Dados recebidos:', { nome, email, perfil });
+    console.log('➕ Dados recebidos:', { nome, email, perfil, id_empresa, base_sindical });
+    console.log('➕ Base sindical recebida:', base_sindical);
+    console.log('➕ Tipo da base sindical:', typeof base_sindical);
 
     // Validações básicas
-    if (!nome || !email || !perfil) {
+    if (!nome || !email || !perfil || !id_empresa) {
       return res.status(400).json({
         success: false,
-        message: 'Nome, e-mail e perfil são obrigatórios'
+        message: 'Nome, e-mail, perfil e empresa são obrigatórios'
       });
     }
 
@@ -269,17 +328,18 @@ router.post('/', auth, requireAdmin, async (req: any, res: any) => {
       });
     }
 
-    // Gerar senha temporária
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+    // Senha padrão para usuários criados pelo dono do sistema
+    const defaultPassword = '123456';
 
     // Criar usuário
     const newUser = await prisma.user.create({
       data: {
         nome: nome.trim(),
         email: email.toLowerCase().trim(),
-        senha: tempPassword, // TODO: Hash da senha
+        senha: await bcrypt.hash(defaultPassword, 12), // Senha com hash
         perfil: perfil,
-        id_empresa: req.user.id_empresa,
+        base_sindical: base_sindical && base_sindical.trim() !== '' ? base_sindical.trim() : null,
+        id_empresa: id_empresa,
         data_criacao: new Date(),
         data_atualizacao: new Date()
       },
@@ -288,20 +348,21 @@ router.post('/', auth, requireAdmin, async (req: any, res: any) => {
         nome: true,
         email: true,
         perfil: true,
+        base_sindical: true,
         data_criacao: true,
         data_atualizacao: true
       }
     });
 
     console.log(`✅ Usuário criado com sucesso: ${newUser.email}`);
+    console.log(`✅ Base sindical salva: ${newUser.base_sindical}`);
 
     // TODO: Enviar e-mail com credenciais temporárias
 
     return res.status(201).json({
       success: true,
-      message: 'Usuário criado com sucesso',
-      data: newUser,
-      tempPassword // TODO: Remover em produção
+      message: 'Usuário criado com sucesso. Senha padrão: 123456',
+      data: newUser
     });
   } catch (error) {
     console.error('Erro ao criar usuário:', error);
@@ -312,11 +373,11 @@ router.post('/', auth, requireAdmin, async (req: any, res: any) => {
   }
 });
 
-// PUT /api/users/:id - Atualizar usuário (apenas nome, email e perfil)
+// PUT /api/users/:id - Atualizar usuário (apenas nome, email, perfil e base_sindical)
 router.put('/:id', auth, requireAdmin, async (req: any, res: any) => {
   try {
     const { id } = req.params;
-    const { nome, email, perfil } = req.body;
+    const { nome, email, perfil, base_sindical } = req.body;
 
     // Verificar se o usuário a ser editado pertence à mesma empresa
     const targetUser = await prisma.user.findUnique({
@@ -343,10 +404,11 @@ router.put('/:id', auth, requireAdmin, async (req: any, res: any) => {
     }
 
     // Verificar se não está tentando alterar o último admin da empresa
-    if (targetUser.perfil === 'admin' && (perfil === 'user' || perfil === 'ghost')) {
+    // O dono do sistema (CNPJ: 41.115.030/0001-20) pode alterar qualquer usuário
+    if (!isSystemOwner && targetUser.perfil === 'admin' && (perfil === 'user' || perfil === 'ghost')) {
       const adminCount = await prisma.user.count({
         where: { 
-          id_empresa: req.user.id_empresa,
+          id_empresa: targetUser.id_empresa, // Usar a empresa do usuário alvo, não do usuário logado
           perfil: 'admin'
         }
       });
@@ -383,6 +445,7 @@ router.put('/:id', auth, requireAdmin, async (req: any, res: any) => {
         nome: nome?.trim(),
         email: email?.toLowerCase().trim(),
         perfil: perfil,
+        base_sindical: base_sindical || null,
         data_atualizacao: new Date()
       },
       select: {
@@ -390,6 +453,7 @@ router.put('/:id', auth, requireAdmin, async (req: any, res: any) => {
         nome: true,
         email: true,
         perfil: true,
+        base_sindical: true,
         data_criacao: true,
         data_atualizacao: true
       }
@@ -450,7 +514,7 @@ router.post('/:id/reset-password', auth, requireAdmin, async (req: any, res: any
     await prisma.user.update({
       where: { id_usuario: id },
       data: {
-        senha: newPassword, // TODO: Hash da senha
+        senha: await bcrypt.hash(newPassword, 12), // Senha com hash
         data_atualizacao: new Date()
       }
     });
@@ -503,10 +567,11 @@ router.delete('/:id', auth, requireAdmin, async (req: any, res: any) => {
     }
 
     // Verificar se não está tentando remover o último admin da empresa
-    if (targetUser.perfil === 'admin') {
+    // O dono do sistema (CNPJ: 41.115.030/0001-20) pode remover qualquer usuário
+    if (!isSystemOwner && targetUser.perfil === 'admin') {
       const adminCount = await prisma.user.count({
         where: { 
-          id_empresa: req.user.id_empresa,
+          id_empresa: targetUser.id_empresa, // Usar a empresa do usuário alvo, não do usuário logado
           perfil: 'admin'
         }
       });

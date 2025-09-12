@@ -1,6 +1,6 @@
 {
   "name": "unisafe-frontend",
-  "version": "1.7.1",
+  "version": "1.8.8",
   "description": "Frontend do sistema UniSafe - Sistema de Gestão de Funcionários e Empresas",
   "type": "module",
   "scripts": {
@@ -11,11 +11,16 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "axios": "^1.7.9",
+    "jspdf": "^3.0.2",
+    "jspdf-autotable": "^5.0.2",
+    "lucide-react": "^0.541.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "react-dropzone": "^14.3.8",
     "react-router-dom": "^6.28.0",
-    "lucide-react": "^0.468.0",
-    "axios": "^1.7.9"
+    "recharts": "^3.1.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
