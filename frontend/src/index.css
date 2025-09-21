@@ -186,3 +186,51 @@
   scrollbar-width: thin;
   scrollbar-color: #d1d5db #f3f4f6;
 }
+
+/* Animações para detectar autofill do navegador */
+@keyframes onAutoFillStart {
+  from { /**/ }
+  to { /**/ }
+}
+
+@keyframes onAutoFillCancel {
+  from { /**/ }
+  to { /**/ }
+}
+
+/* Aplicar animações aos inputs de e-mail e senha */
+input[type="email"]:autofill {
+  animation-name: onAutoFillStart;
+  animation-duration: 0.001s;
+}
+
+input[type="password"]:autofill {
+  animation-name: onAutoFillStart;
+  animation-duration: 0.001s;
+}
+
+input[type="email"]:not(:autofill) {
+  animation-name: onAutoFillCancel;
+  animation-duration: 0.001s;
+}
+
+input[type="password"]:not(:autofill) {
+  animation-name: onAutoFillCancel;
+  animation-duration: 0.001s;
+}
+
+/* Animações para feedback visual */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

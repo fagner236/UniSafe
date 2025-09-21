@@ -9,6 +9,9 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Configurações adicionais
+  maxContentLength: config.maxFileSize,
+  maxBodyLength: config.maxFileSize,
 });
 
 // Interceptor para requisições

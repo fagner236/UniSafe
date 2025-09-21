@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom';
 import { 
   Home, 
   Users, 
-  Upload, 
   Menu,
   X,
   Settings
@@ -21,28 +20,19 @@ const Sidebar = () => {
   // Verificar se o usuário é admin da empresa dona do sistema
   const isSystemAdmin = isSystemOwner && user?.perfil === 'admin';
   
-  // Verificar se o usuário é Ghost (não deve ver a sidebar)
-  const isGhostUser = user?.perfil === 'ghost';
-  
-  // Se for usuário Ghost, não renderizar nada
-  if (isGhostUser) {
+  // Verificar se o usuário é Guest (não deve ver a sidebar)
+  const isGuestUser = user?.perfil === 'guest';
+
+  // Se for usuário Guest, não renderizar nada
+  if (isGuestUser) {
     return null;
   }
 
-  // Navegação base para todos os usuários
-  const baseNavigation = [
+  // Navegação para todos os usuários
+  const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Base de Dados', href: '/employees', icon: Users },
   ];
-
-  // Adicionar menu Upload apenas para usuários Admin da empresa dona do sistema
-  const navigation = isSystemAdmin
-    ? [
-        ...baseNavigation.slice(0, 1), // Dashboard
-        { name: 'Upload', href: '/upload', icon: Upload },
-        ...baseNavigation.slice(1) // Base de Dados
-      ]
-    : baseNavigation;
 
   return (
     <>

@@ -20,11 +20,23 @@ import empregadosRoutes from './routes/empregados';
 import { errorHandler } from './middleware/errorHandler';
 import { securityConfig } from './config/security';
 
+import compression from "compression"; 
+
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Voltando para porta 3000
+
+
+// Força compressão em todas as respostas
+app.use(
+  compression({
+    level: 9,              // nível de compressão (1-9)
+    threshold: 0,          // força compressão de qualquer tamanho (0 = tudo)
+    filter: () => true     // ignora cabeçalhos e força compressão sempre
+  })
+);
 
 // Middleware de segurança básico
 app.use(helmet({
@@ -33,11 +45,30 @@ app.use(helmet({
 }));
 
 // CORS configurado de forma funcional
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000', 
+  'http://localhost:4173',
+  'https://unisafe.evia.com.br',
+  'https://www.unisafe.evia.com.br'
+];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173'],
+  origin: (origin, callback) => {
+    // Permitir requisições sem origem (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('❌ Origem CORS não permitida:', origin);
+      callback(new Error('Não permitido pelo CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  optionsSuccessStatus: 200
 }));
 
 // Logging

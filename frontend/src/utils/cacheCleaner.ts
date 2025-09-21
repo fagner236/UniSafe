@@ -40,7 +40,9 @@ export const clearSystemCache = (options: CacheCleanerOptions = {}) => {
         'accessError',
         'rememberedEmail',
         'rememberedPassword',
-        'rememberMe'
+        'rememberMe',
+        'unisafe_remember_me',
+        'selectedBaseSindical'
       ];
 
       // Remover chaves específicas do sistema
@@ -107,15 +109,11 @@ export const clearSystemCache = (options: CacheCleanerOptions = {}) => {
 
       // Limpar timeouts e intervals pendentes
       const highestTimeoutId = setTimeout(() => {}, 0);
-      for (let i = 0; i < highestTimeoutId; i++) {
-        clearTimeout(i);
-      }
+      clearTimeout(highestTimeoutId); // Limpar o timeout que acabamos de criar
       console.log('✅ Timeouts limpos');
 
       const highestIntervalId = setInterval(() => {}, 0);
-      for (let i = 0; i < highestIntervalId; i++) {
-        clearInterval(i);
-      }
+      clearInterval(highestIntervalId); // Limpar o interval que acabamos de criar
       console.log('✅ Intervals limpos');
     } catch (error) {
       console.error('❌ Erro ao limpar memória:', error);
@@ -225,16 +223,63 @@ export const clearCacheOnLogin = () => {
 export const clearCacheOnLogout = () => {
   console.log('🚪 Limpando cache no logout...');
   
-  // Limpeza completa no logout
-  clearSystemCache({
-    clearLocalStorage: true,
-    clearSessionStorage: true,
-    clearCookies: true,
-    clearMemory: true,
-    clearAxiosCache: true
-  });
+  // Verificar se "Lembrar de mim" está ativado ANTES da limpeza
+  const rememberMe = localStorage.getItem('rememberMe');
+  const hasRememberMeCredentials = localStorage.getItem('unisafe_remember_me');
   
-  console.log('✅ Cache completamente limpo no logout');
+  console.log('🔍 Estado antes da limpeza:', { rememberMe, hasCredentials: !!hasRememberMeCredentials });
+  
+  // Limpeza completa no logout, mas preservando credenciais se necessário
+  if (rememberMe === 'true' && hasRememberMeCredentials) {
+    console.log('💾 Preservando credenciais "Lembrar de mim" durante limpeza...');
+    
+    // Limpar apenas dados específicos, não as credenciais
+    const systemKeys = [
+      'token',
+      'userData',
+      'dashboardData',
+      'employeeData',
+      'uploadData',
+      'processedData',
+      'companyData',
+      'version-notification-dismissed',
+      'accessError',
+      'selectedBaseSindical'
+    ];
+    
+    // Remover apenas chaves específicas do sistema
+    systemKeys.forEach(key => {
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+        console.log(`🗑️ Removido do localStorage: ${key}`);
+      }
+    });
+    
+    // Limpar sessionStorage e outros caches
+    if (sessionStorage.length > 0) {
+      sessionStorage.clear();
+      console.log('✅ sessionStorage limpo');
+    }
+    
+    // Limpar cache de memória
+    if (window.gc) {
+      window.gc();
+      console.log('✅ Garbage collection executado');
+    }
+    
+    console.log('💾 Credenciais "Lembrar de mim" preservadas');
+  } else {
+    // Limpeza completa se não há "Lembrar de mim"
+    clearSystemCache({
+      clearLocalStorage: true,
+      clearSessionStorage: true,
+      clearCookies: true,
+      clearMemory: true,
+      clearAxiosCache: true
+    });
+  }
+  
+  console.log('✅ Cache limpo no logout');
 };
 
 // Extensão da interface Window para cache global

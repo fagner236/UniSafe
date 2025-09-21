@@ -36,13 +36,11 @@ const ForgotPassword = () => {
       <LoginSidebar />
 
       {/* Lado direito - Formulário */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1d335b] to-[#2f4a8c]">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-[#ffc9c0] lg:bg-gradient-to-br lg:from-[#1d335b] lg:to-[#2f4a8c]">
         <div className="max-w-md w-full space-y-8">
           {/* Logo mobile */}
           <div className="lg:hidden text-center">
             <img src="/logo.svg.png" alt="evia Logo" className="mx-auto h-16 w-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900">evia</h2>
-            <p className="text-sm text-gray-600">Recupere sua senha</p>
           </div>
 
           <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">

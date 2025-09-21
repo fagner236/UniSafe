@@ -1,11 +1,20 @@
 runtime: nodejs24
 service: unisafe-api 
 
-entrypoint: node server.js
+entrypoint: node dist/index.js
 
 env_variables:
-  DATABASE_URL: "mysql://user-db:@Evia**2021@/cloudsql/evia-app:us-central1:3306/UniSafe"
+  DATABASE_URL: "mysql://user-db:%40Evia%2A%2A2021@localhost/UniSafe?socket=/cloudsql/evia-app:us-central1:evia-db"
+                 
   JWT_SECRET: "sindicato-super-secret-jwt-key-change-this-in-production"
-  PORT: "3000"
-  NODE_ENV: "development"
-  CORS_ORIGIN: " https://unisafe-api-dot-evia-app.ue.r.appspot.com/:5173"
+  NODE_ENV: "production"
+  CORS_ORIGIN: "https://unisafe.evia.com.br"
+  VITE_API_URL: "https://unisafe-api-dot-evia-app.ue.r.appspot.com"
+  TZ: "America/Sao_Paulo"
+  ENVIRONMENT: "False"
+
+beta_settings:
+  cloud_sql_instances: evia-app:us-central1:evia-db
+
+automatic_scaling:
+  max_instances: 1

@@ -64,7 +64,7 @@ router.get('/stats', auth, requireSystemOwner, async (req: any, res: any) => {
       totalUsers,
       totalCompanies,
       adminUsers,
-      ghostUsers,
+      guestUsers,
       userUsers
     ] = await Promise.all([
       // Total de usuários no sistema
@@ -75,7 +75,7 @@ router.get('/stats', auth, requireSystemOwner, async (req: any, res: any) => {
       
       // Usuários por perfil
       prisma.user.count({ where: { perfil: 'admin' } }),
-      prisma.user.count({ where: { perfil: 'ghost' } }),
+      prisma.user.count({ where: { perfil: 'guest' } }),
       prisma.user.count({ where: { perfil: 'user' } })
     ]);
 
@@ -92,7 +92,7 @@ router.get('/stats', auth, requireSystemOwner, async (req: any, res: any) => {
       totalCompanies,
       totalUniqueCnpjs,
       adminUsers,
-      ghostUsers,
+      guestUsers,
       userUsers
     });
 
@@ -109,7 +109,7 @@ router.get('/stats', auth, requireSystemOwner, async (req: any, res: any) => {
         totalCompanies: totalUniqueCnpjs, // Usar CNPJs únicos
         usersByProfile: {
           admin: adminUsers,
-          ghost: ghostUsers,
+          guest: guestUsers,
           user: userUsers
         }
       }
@@ -269,7 +269,7 @@ router.get('/test-users', async (req: any, res: any) => {
     
     // Contar usuários por perfil
     const adminUsers = await prisma.user.count({ where: { perfil: 'admin' } });
-    const ghostUsers = await prisma.user.count({ where: { perfil: 'ghost' } });
+    const guestUsers = await prisma.user.count({ where: { perfil: 'guest' } });
     const userUsers = await prisma.user.count({ where: { perfil: 'user' } });
     
     // Buscar alguns usuários para exemplo
@@ -287,7 +287,7 @@ router.get('/test-users', async (req: any, res: any) => {
     console.log('👥 Estatísticas dos usuários:', {
       totalUsers,
       adminUsers,
-      ghostUsers,
+      guestUsers,
       userUsers,
       sampleUsers
     });
@@ -299,7 +299,7 @@ router.get('/test-users', async (req: any, res: any) => {
         totalUsers,
         usersByProfile: {
           admin: adminUsers,
-          ghost: ghostUsers,
+          guest: guestUsers,
           user: userUsers
         },
         sampleUsers

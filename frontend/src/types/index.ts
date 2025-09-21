@@ -104,7 +104,7 @@ export interface User {
   id_usuario: string;
   nome: string;
   email: string;
-  perfil: 'admin' | 'user' | 'ghost';
+  perfil: 'admin' | 'user' | 'guest';
   base_sindical?: string;
   data_criacao: string;
   data_atualizacao?: string;

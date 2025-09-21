@@ -47,8 +47,10 @@ export const dashboardService = {
   },
 
   // Nova rota para buscar dados diretamente da tabela base_dados
-  async getBaseDados(monthYear?: string): Promise<{ success: boolean; data: DashboardEmployees }> {
-    const params = monthYear ? { monthYear } : {};
+  async getBaseDados(monthYear?: string, baseSindical?: string): Promise<{ success: boolean; data: DashboardEmployees }> {
+    const params: any = {};
+    if (monthYear) params.monthYear = monthYear;
+    if (baseSindical) params.baseSindical = baseSindical;
     const response = await api.get('/dashboard/base-dados', { params });
     return response.data;
   }

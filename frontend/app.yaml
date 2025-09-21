@@ -3,18 +3,47 @@ service: unisafe
 
 env_variables:
   NODE_ENV: production
-  PORT: 8080
   APP_URL: 'http://unisafe.evia.com.br'
+  VITE_API_URL: 'https://unisafe-api-dot-evia-app.ue.r.appspot.com'
   ENVIRONMENT: 'False'
   TZ: America/Sao_Paulo
 
-instance_class: F1  # classe de instância mais econômica
+instance_class: F1
 
 handlers:
-  - url: /
+  # Servir arquivos estáticos (CSS, JS, imagens)
+  - url: /assets/(.*)
+    static_files: dist/assets/\1
+    upload: dist/assets/(.*)
+    expiration: 365d
+
+  # Servir favicon
+  - url: /favicon\.svg
+    static_files: dist/favicon.svg
+    upload: dist/favicon.svg
+    expiration: 365d
+
+  # Servir logos
+  - url: /logo-large\.svg\.png
+    static_files: dist/logo-large.svg.png
+    upload: dist/logo-large.svg.png
+    expiration: 365d
+
+  - url: /logo\.svg\.png
+    static_files: dist/logo.svg.png
+    upload: dist/logo.svg.png
+    expiration: 365d
+
+  - url: /logo\.svg2\.png
+    static_files: dist/logo.svg2.png
+    upload: dist/logo.svg2.png
+    expiration: 365d
+
+  # Para todas as outras rotas, servir o index.html (SPA routing)
+  - url: /.*
     static_files: dist/index.html
     upload: dist/index.html
+    mime_type: text/html
 
-  - url: /(.*)
-    static_files: dist/\1
-    upload: dist/(.*)
+automatic_scaling:
+  max_instances: 1

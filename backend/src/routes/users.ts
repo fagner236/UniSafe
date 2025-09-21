@@ -99,8 +99,8 @@ router.get('/stats', auth, requireAdmin, async (req: any, res: any) => {
       where: { perfil: 'user' }
     });
 
-    const ghostUsers = await prisma.user.count({
-      where: { perfil: 'ghost' }
+    const guestUsers = await prisma.user.count({
+      where: { perfil: 'guest' }
     });
 
     // Usuários criados este mês (TODOS os usuários do sistema)
@@ -134,7 +134,7 @@ router.get('/stats', auth, requireAdmin, async (req: any, res: any) => {
       totalUsers,
       adminUsers,
       userUsers,
-      ghostUsers,
+      guestUsers,
       newUsersThisMonth,
       lastActivity: lastUser?.data_atualizacao || new Date(),
       usersByCompany: usersByCompany.length
@@ -307,10 +307,10 @@ router.post('/', auth, requireAdmin, async (req: any, res: any) => {
       });
     }
 
-    if (!['admin', 'user', 'ghost'].includes(perfil)) {
+    if (!['admin', 'user', 'guest'].includes(perfil)) {
       return res.status(400).json({
         success: false,
-        message: 'Perfil inválido. Deve ser admin, user ou ghost'
+        message: 'Perfil inválido. Deve ser admin, user ou guest'
       });
     }
 
@@ -405,7 +405,7 @@ router.put('/:id', auth, requireAdmin, async (req: any, res: any) => {
 
     // Verificar se não está tentando alterar o último admin da empresa
     // O dono do sistema (CNPJ: 41.115.030/0001-20) pode alterar qualquer usuário
-    if (!isSystemOwner && targetUser.perfil === 'admin' && (perfil === 'user' || perfil === 'ghost')) {
+    if (!isSystemOwner && targetUser.perfil === 'admin' && (perfil === 'user' || perfil === 'guest')) {
       const adminCount = await prisma.user.count({
         where: { 
           id_empresa: targetUser.id_empresa, // Usar a empresa do usuário alvo, não do usuário logado

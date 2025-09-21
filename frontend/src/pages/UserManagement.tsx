@@ -33,7 +33,7 @@ interface User {
   id_usuario: string;
   nome: string;
   email: string;
-  perfil: 'admin' | 'user' | 'ghost';
+  perfil: 'admin' | 'user' | 'guest';
   base_sindical?: string;
   data_criacao: string;
   data_atualizacao: string;
@@ -49,7 +49,7 @@ interface UserStats {
   totalUsers: number;
   adminUsers: number;
   userUsers: number;
-  ghostUsers: number;
+  guestUsers: number;
   newUsersThisMonth: number;
   lastActivity: string;
 }
@@ -90,7 +90,7 @@ const UserManagement = () => {
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
-    perfil: 'user' as 'admin' | 'user' | 'ghost',
+    perfil: 'user' as 'admin' | 'user' | 'guest',
     id_empresa: '',
     base_sindical: ''
   });
@@ -129,7 +129,7 @@ const UserManagement = () => {
           totalUsers: response.data.totalUsers,
           adminUsers: response.data.data.filter((u: User) => u.perfil === 'admin').length,
           userUsers: response.data.data.filter((u: User) => u.perfil === 'user').length,
-          ghostUsers: response.data.data.filter((u: User) => u.perfil === 'ghost').length,
+          guestUsers: response.data.data.filter((u: User) => u.perfil === 'guest').length,
           newUsersThisMonth: response.data.data.filter((u: User) => {
             const userDate = new Date(u.data_criacao);
             const now = new Date();
@@ -869,7 +869,7 @@ const UserManagement = () => {
     switch (profile) {
       case 'admin': return <Shield className="h-4 w-4" />;
       case 'user': return <User className="h-4 w-4" />;
-      case 'ghost': return <Ghost className="h-4 w-4" />;
+      case 'guest': return <Ghost className="h-4 w-4" />;
       default: return <User className="h-4 w-4" />;
     }
   };
@@ -879,7 +879,7 @@ const UserManagement = () => {
     switch (profile) {
       case 'admin': return 'text-blue-600 bg-blue-50 border-blue-200';
       case 'user': return 'text-green-600 bg-green-50 border-green-200';
-      case 'ghost': return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'guest': return 'text-gray-600 bg-gray-50 border-gray-200';
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
@@ -889,7 +889,7 @@ const UserManagement = () => {
     switch (profile) {
       case 'admin': return 'Admin';
       case 'user': return 'User';
-      case 'ghost': return 'Ghost';
+      case 'guest': return 'Guest';
       default: return profile;
     }
   };
@@ -914,13 +914,13 @@ const UserManagement = () => {
           </div>
           
           {/* Aviso de Segurança */}
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#ffc9c0', borderLeft: '4px solid #c9504c' }}>
+          <div className="p-4 rounded-lg" style={{ backgroundColor: '#fff5f5', borderColor: '#ffc9c0', borderWidth: '1px', borderStyle: 'solid' }}>
             <div className="flex">
               <div className="flex-shrink-0">
                 <Shield className="h-5 w-5" style={{ color: '#1d335b' }} />
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium" style={{ color: '#1d335b' }}>
+                <p className="text-sm font-medium" style={{ color: '#8b5a5a' }}>
                   <strong>Segurança:</strong> Todas as ações são registradas para auditoria. 
                   Esta página é restrita a administradores e mostra TODOS os usuários de TODAS as empresas do sistema para gestão completa.
                 </p>
@@ -987,10 +987,10 @@ const UserManagement = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">
-                    Total Ghost de Todas as Empresas (Admin)
+                    Total Guest de Todas as Empresas (Admin)
                   </p>
                   <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>
-                    {stats.ghostUsers.toLocaleString('pt-BR')}
+                    {stats.guestUsers.toLocaleString('pt-BR')}
                   </p>
                 </div>
               </div>
@@ -1030,7 +1030,7 @@ const UserManagement = () => {
                 <option value="">Todos os perfis</option>
                 <option value="admin">Admin</option>
                 <option value="user">User</option>
-                <option value="ghost">Ghost</option>
+                <option value="guest">Guest</option>
               </select>
             </div>
 
@@ -1547,13 +1547,13 @@ const UserManagement = () => {
                     </label>
                     <select
                       value={formData.perfil}
-                      onChange={(e) => setFormData(prev => ({ ...prev, perfil: e.target.value as 'admin' | 'user' | 'ghost' }))}
+                      onChange={(e) => setFormData(prev => ({ ...prev, perfil: e.target.value as 'admin' | 'user' | 'guest' }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
                       <option value="admin">Admin</option>
                       <option value="user">User</option>
-                      <option value="ghost">Ghost</option>
+                      <option value="guest">Guest</option>
                     </select>
                   </div>
                   
@@ -1710,14 +1710,14 @@ const UserManagement = () => {
                     </label>
                     <select
                       value={formData.perfil}
-                      onChange={(e) => setFormData(prev => ({ ...prev, perfil: e.target.value as 'admin' | 'user' | 'ghost' }))}
+                      onChange={(e) => setFormData(prev => ({ ...prev, perfil: e.target.value as 'admin' | 'user' | 'guest' }))}
                       className="w-full px-3 py-5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
                       onFocus={(e) => e.currentTarget.style.borderColor = '#c9504c'}
                       onBlur={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
                     >
                       <option value="admin">Admin</option>
                       <option value="user">User</option>
-                      <option value="ghost">Ghost</option>
+                      <option value="guest">Guest</option>
                     </select>
                   </div>
                   
@@ -2137,7 +2137,7 @@ const UserManagement = () => {
                         <option value="">Todos os perfis</option>
                         <option value="admin">Admin</option>
                         <option value="user">User</option>
-                        <option value="ghost">Ghost</option>
+                        <option value="guest">Guest</option>
                       </select>
                     </div>
 

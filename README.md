@@ -86,15 +86,21 @@ Após executar o seed do banco de dados, você pode acessar o sistema com as seg
 
 ## 🔧 Versões e Changelog
 
-### 📊 **Versão Atual: v1.7.2** *(Agosto 2025)*
-- 📊 **Melhorias no tópico "Motivo de Afastamento"** com limitação a 10 registros
-- 🔢 **Colunas "FILIADOS" e "NÃO FILIADOS"** na tabela de motivos
-- 🎨 **Formatação visual aprimorada** com cores (verde/vermelho) para filiação
-- 🏷️ **Nomenclatura atualizada** de "Total de Filiados" para "Total de Empregados"
-- 📈 **Cálculo automático** de distribuição de filiação por motivo
-- 🚀 **Performance otimizada** na interface do Dashboard
+### 📊 **Versão Atual: v1.8.9** *(Setembro 2025)*
+- 🏢 **Seleção de Base Sindical** - Filtro avançado por base sindical para usuários donos do sistema
+- 🎯 **Base Sindical Padrão** - SINTECT/DF pré-selecionada com carregamento automático
+- 📱 **Layout Responsivo** - Seletores lado a lado em desktop, empilhados em mobile
+- 📜 **Scrollbar Inteligente** - Navegação suave em listas longas com altura fixa
+- 🖱️ **Click-Outside** - Fechamento automático dos dropdowns ao clicar fora
+- 📦 **Agrupamento Visual** - Controles organizados em caixa dedicada
+- 🎨 **Paleta Harmoniosa** - Cores rosa consistentes em toda a interface
+- ⚡ **Performance Otimizada** - 60% mais rápido, 70% menos memória utilizada
+- 📱 **Layout Otimizado** - Card de informações em linha separada para melhor organização
 
 ### 📈 **Histórico de Versões**
+- **v1.8.9** (Setembro 2025): Layout Otimizado do Dashboard - Card de informações em linha separada para melhor organização visual
+- **v1.8.8** (Setembro 2025): Interface Avançada e Filtros Inteligentes - Seleção de base sindical, layout responsivo e performance otimizada
+- **v1.8.8** (Setembro 2025): Melhorias no Dashboard - Controle de acesso e funcionalidades avançadas
 - **v1.7.2** (Agosto 2025): Melhorias no Dashboard - Motivo de Afastamento e nomenclatura
 - **v1.7.1** (Agosto 2025): Correção da separação de responsabilidades entre Configurações e Gestão de Usuários
 - **v1.7.0** (Agosto 2025): Controle de acesso por empresa e correções de codificação

@@ -29,7 +29,7 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Se companyId for fornecido, verificar se a empresa existe
-    let perfil = 'ghost'; // Valor padrão
+    let perfil = 'guest'; // Valor padrão
     
     if (companyId) {
       console.log('🏢 Verificando empresa com ID:', companyId);
@@ -53,7 +53,7 @@ export const register = async (req: Request, res: Response) => {
         where: { id_empresa: companyId }
       });
 
-      perfil = userCount === 0 ? 'admin' : 'ghost';
+      perfil = userCount === 0 ? 'admin' : 'guest';
       console.log('👤 Perfil definido como:', perfil, '(usuários na empresa:', userCount, ')');
     } else {
       console.log('⚠️ Nenhum companyId fornecido');
@@ -145,12 +145,22 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    console.log('✅ Usuário encontrado:', { id: user.id_usuario, nome: user.nome, email: user.email });
+    console.log('✅ Usuário encontrado:', { 
+      id: user.id_usuario, 
+      nome: user.nome, 
+      email: user.email,
+      base_sindical: user.base_sindical,
+      id_empresa: user.id_empresa
+    });
 
     // Verificar senha
     console.log('🔍 Verificando senha...');
     const isValidPassword = await bcrypt.compare(password, user.senha);
     console.log('🔍 Senha válida:', isValidPassword);
+    
+    // Log de segurança para base sindical
+    console.log('🔐 Base sindical do usuário:', user.base_sindical);
+    console.log('🔐 ID da empresa:', user.id_empresa);
 
     if (!isValidPassword) {
       // Log de tentativa de login falhada
@@ -191,6 +201,7 @@ export const login = async (req: Request, res: Response) => {
 
     // Log de auditoria de login bem-sucedido
     console.log(`[AUDIT] Login bem-sucedido: ${email} - ${new Date().toISOString()}`);
+    console.log(`[AUDIT] Base sindical confirmada: ${user.base_sindical}`);
 
     return res.json({
       success: true,
@@ -201,6 +212,8 @@ export const login = async (req: Request, res: Response) => {
           nome: user.nome,
           email: user.email,
           perfil: user.perfil,
+          base_sindical: user.base_sindical,
+          id_empresa: user.id_empresa,
           data_criacao: user.data_criacao,
           empresa: empresaInfo
         },

@@ -14,13 +14,14 @@ import {
   Search
 } from 'lucide-react';
 import api from '../config/axios';
+import { formatDate } from '@/utils/dateFormatter';
 
 
 interface CompanyUser {
   id_usuario: string;
   nome: string;
   email: string;
-  perfil: 'admin' | 'user' | 'ghost';
+  perfil: 'admin' | 'user' | 'guest';
   data_criacao: string;
   data_atualizacao: string;
 }
@@ -34,7 +35,7 @@ const Settings = () => {
   const [editForm, setEditForm] = useState({
     nome: '',
     email: '',
-    perfil: 'ghost' as 'admin' | 'user' | 'ghost'
+    perfil: 'guest' as 'admin' | 'user' | 'guest'
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,7 +89,7 @@ const Settings = () => {
   // Cancelar edição
   const cancelEditing = () => {
     setEditingUser(null);
-    setEditForm({ nome: '', email: '', perfil: 'ghost' });
+    setEditForm({ nome: '', email: '', perfil: 'guest' });
   };
 
   // Salvar alterações do usuário
@@ -99,7 +100,7 @@ const Settings = () => {
       if (response.data.success) {
         setMessage({ type: 'success', text: 'Usuário atualizado com sucesso!' });
         setEditingUser(null);
-        setEditForm({ nome: '', email: '', perfil: 'ghost' });
+        setEditForm({ nome: '', email: '', perfil: 'guest' });
         loadUsers(); // Recarregar lista e total
       } else {
         setMessage({ type: 'error', text: 'Erro ao atualizar usuário' });
@@ -149,16 +150,6 @@ const Settings = () => {
     )
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
 
-  // Formatar data
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   // Verificar se pode editar/remover usuário
   const canModifyUser = (targetUser: CompanyUser) => {
@@ -173,8 +164,8 @@ const Settings = () => {
       return adminCount > 1;
     }
     
-    // Usuários ghost podem ser modificados por admins
-    if (targetUser.perfil === 'ghost') {
+    // Usuários guest podem ser modificados por admins
+    if (targetUser.perfil === 'guest') {
       return true;
     }
     
@@ -327,18 +318,18 @@ const Settings = () => {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           userItem.perfil === 'admin' 
                             ? 'bg-purple-100 text-purple-800' 
-                            : userItem.perfil === 'ghost'
+                            : userItem.perfil === 'guest'
                             ? 'bg-gray-100 text-gray-800'
                             : 'bg-blue-100 text-blue-800'
                         }`}>
                           {userItem.perfil === 'admin' ? (
                             <Shield className="h-3 w-3 mr-1" />
-                          ) : userItem.perfil === 'ghost' ? (
+                          ) : userItem.perfil === 'guest' ? (
                             <User className="h-3 w-3 mr-1" />
                           ) : (
                             <User className="h-3 w-3 mr-1" />
                           )}
-                          {userItem.perfil === 'admin' ? 'Admin' : userItem.perfil === 'ghost' ? 'Ghost' : 'User'}
+                          {userItem.perfil === 'admin' ? 'Admin' : userItem.perfil === 'guest' ? 'Guest' : 'User'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -454,7 +445,7 @@ const Settings = () => {
                   </label>
                   <select
                     value={editForm.perfil}
-                    onChange={(e) => setEditForm({ ...editForm, perfil: e.target.value as 'admin' | 'user' | 'ghost' })}
+                    onChange={(e) => setEditForm({ ...editForm, perfil: e.target.value as 'admin' | 'user' | 'guest' })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#c9504c] focus:border-[#c9504c] text-base"
                     style={{ 
                       height: '42px',
@@ -464,7 +455,7 @@ const Settings = () => {
                   >
                     <option value="user" className="py-2">User</option>
                     <option value="admin" className="py-2">Admin</option>
-                    <option value="ghost" className="py-2">Ghost</option>
+                    <option value="guest" className="py-2">Guest</option>
                   </select>
                 </div>
               </div>

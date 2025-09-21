@@ -13,14 +13,14 @@ model User {
   nome             String      @map("nome") @db.VarChar(255)
   email            String      @unique(map: "users_email_key") @map("email") @db.VarChar(255)
   senha            String      @map("senha")
-  perfil           String      @default("ghost") @map("perfil")
+  perfil           String      @default("guest") @map("perfil")
   data_criacao     DateTime    @default(now()) @map("data_criacao")
   data_atualizacao DateTime    @updatedAt @map("data_atualizacao")
   base_sindical    String?     @map("base_sindical") @db.VarChar(255)
   systemLogs       SystemLog[]
   uploads          Upload[]
   empresa          Company?    @relation(fields: [id_empresa], references: [id_empresa])
-  empregados       Empregado[]
+  // empregados       Empregado[]
 
   @@index([id_empresa], map: "usuarios_id_empresa_fkey")
   @@map("usuarios")
@@ -132,7 +132,7 @@ model BaseDados {
   data_afast        DateTime? @map("data_afast") @db.Date
   motivo_afast      String?   @map("motivo_afast") @db.VarChar(255)
   base_sindical     String    @map("base_sindical") @db.VarChar(100)
-  filiado           String    @map("filiado") @db.VarChar(10)
+  filiado           String    @map("filiado") @db.VarChar(15)
   valor_mensalidade Decimal?  @map("valor_mensalidade") @db.Decimal(10, 2)
   data_criacao      DateTime  @default(now()) @map("data_criacao")
   data_atualizacao  DateTime  @default(now()) @updatedAt @map("data_atualizacao")
@@ -150,13 +150,13 @@ model Empregado {
   id_empregados   Int       @id @default(autoincrement()) @map("id_empregados")
   matricula       String    @unique @map("matricula") @db.VarChar(8)
   email           String?   @unique @map("e-mail") @db.VarChar(200)
-  celular         String?   @unique @map("celular") @db.VarChar(15)
+  celular         String?   @unique @map("celular") @db.VarChar(20)
   foto            String?   @map("foto") @db.VarChar(255)
   id_usuario      String    @map("id_usuario") @db.VarChar(191)
   data_criacao    DateTime? @map("data_criacao") @db.DateTime(3)
   data_atualizacao DateTime? @map("data_atualizacao") @db.DateTime(3)
   
-  usuario         User      @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  // usuario         User      @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
 
   @@index([matricula])
   @@index([id_usuario])

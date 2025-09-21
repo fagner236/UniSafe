@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
+import { resolve } from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': resolve('./src'),
     },
   },
   build: {
@@ -15,12 +15,13 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'index.html'),
+        main: resolve('index.html'),
       },
     },
   },
   server: {
     port: 5173,
+    // Proxy apenas para desenvolvimento local
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

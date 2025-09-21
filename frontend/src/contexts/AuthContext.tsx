@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User } from '@/types';
 import { clearCacheOnLogin, clearCacheOnLogout, clearAuthCache } from '@/utils/cacheCleaner';
 import { logger } from '@/utils/logger';
+import { config } from '@/config/environment';
 
 interface AuthContextType {
   user: User | null;
@@ -41,7 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const fetchUserProfile = async () => {
     try {
       logger.log('Buscando perfil do usuário com token:', token?.substring(0, 20) + '...');
-      const response = await fetch('http://localhost:3000/api/auth/profile', {
+      const response = await fetch(`${config.apiUrl}/auth/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -78,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       clearCacheOnLogin();
       
       logger.log('Tentando fazer login com:', email);
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch(`${config.apiUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -113,7 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setToken(null);
     setUser(null);
     
-    // Limpeza completa de cache e memória
+    // Limpeza completa de cache e memória (já cuida das credenciais salvas)
     clearCacheOnLogout();
     
     logger.log('✅ Logout completo - Cache e memória limpos');

@@ -1,6 +1,6 @@
 {
   "name": "unisafe",
-  "version": "1.8.8",
+  "version": "1.8.9",
   "description": "UniSafe - Sistema de Gestão de Funcionários e Empresas",
   "private": true,
   "scripts": {

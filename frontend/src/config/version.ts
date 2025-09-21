@@ -1,10 +1,10 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.8.8';
+export const APP_VERSION = '1.9.1';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema de Gestão de Funcionários e Empresas';
-export const APP_AUTHOR = 'Evia - Via Eletrônica Ltda.';
+export const APP_AUTHOR = 'Evia';
 export const APP_WEBSITE = 'https://evia.com.br';
 
 export const VERSION_FEATURES = [
@@ -19,6 +19,38 @@ export const VERSION_FEATURES = [
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.9.1',
+    date: 'Setembro 2024',
+    features: [
+      '📊 Análise Avançada de Filiação no Dashboard',
+      '🎂 Coluna FILIADO na tabela de Aniversariantes da Semana',
+      '🎨 Highlight Interativo no gráfico de Jornadas de Trabalho',
+      '🔧 Substituição automática de "01/01/1900" por "-" na DATA_AFAST',
+      '🎯 Padronização Visual dos cards de aviso em todo o sistema',
+      '✨ Melhorias na Experiência do Usuário e Interatividade',
+      '⚡ Otimizações de Performance e Formatação de Dados',
+      '🎨 Design System Consistente e Profissional',
+      '📱 Interface Mais Intuitiva e Responsiva',
+      '✅ Funcionalidades Avançadas de Análise de Dados'
+    ]
+  },
+  {
+    version: '1.8.9',
+    date: 'Setembro 2025',
+    features: [
+      '🎨 Layout Otimizado do Dashboard',
+      '📱 Card de Informações em Linha Separada',
+      '🔧 Organização Visual Melhorada',
+      '📊 Hierarquia Clara de Elementos',
+      '🎯 Experiência do Usuário Aprimorada',
+      '📱 Layout Responsivo Aprimorado',
+      '✨ Interface Mais Limpa e Organizada',
+      '🔄 Fluxo Natural de Navegação',
+      '📋 Informações Destacadas Adequadamente',
+      '✅ Estrutura Visual Otimizada'
+    ]
+  },
   {
     version: '1.8.8',
     date: 'Janeiro 2025',
@@ -240,18 +272,18 @@ export const VERSION_INFO = {
   description: APP_DESCRIPTION,
   author: APP_AUTHOR,
   website: APP_WEBSITE,
-  releaseDate: '2025-01-15',
+  releaseDate: '2025-09-15',
   changes: [
-    '⏳ Sistema de Loading Inteligente implementado no Dashboard',
-    '📊 Barra de progresso com etapas detalhadas de carregamento',
-    '🎨 Modal de loading moderno com animações suaves',
-    '📱 Tela de login mobile otimizada e limpa',
-    '🔧 Logo UniSafe reposicionado no menu mobile',
-    '📤 Modal de exportação completo na Base de Dados',
-    '📋 Suporte robusto para Excel e CSV',
-    '🎯 Interface mais limpa com foco na usabilidade',
-    '🔍 Sistema de logs detalhado para debugging',
-    '⚡ Performance otimizada em todas as operações'
+    '🎨 Layout Otimizado do Dashboard',
+    '📱 Card de Informações em Linha Separada',
+    '🔧 Organização Visual Melhorada',
+    '📊 Hierarquia Clara de Elementos',
+    '🎯 Experiência do Usuário Aprimorada',
+    '📱 Layout Responsivo Aprimorado',
+    '✨ Interface Mais Limpa e Organizada',
+    '🔄 Fluxo Natural de Navegação',
+    '📋 Informações Destacadas Adequadamente',
+    '✅ Estrutura Visual Otimizada'
   ]
 };
 

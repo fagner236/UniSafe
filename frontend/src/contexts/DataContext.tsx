@@ -26,6 +26,8 @@ export interface ProcessedData {
   totalRecordsInDatabase?: number;
   filteredRecords?: number;
   availableMonths?: string[];
+  availableBasesSindicais?: string[];
+  selectedBaseSindical?: string | null;
 }
 
 interface DataContextType {
@@ -34,7 +36,7 @@ interface DataContextType {
   clearData: () => void;
   hasData: boolean;
   loadLatestCompanyData: () => Promise<void>;
-  loadBaseDadosData: (monthYear?: string) => Promise<void>;
+  loadBaseDadosData: (monthYear?: string, baseSindical?: string) => Promise<void>;
   isLoadingLatestData: boolean;
   isLoadingBaseDados: boolean;
   error: string | null;
@@ -96,7 +98,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const hasData = processedData !== null;
 
   // Função para carregar dados da tabela base_dados (prioridade)
-  const loadBaseDadosData = async (monthYear?: string) => {
+  const loadBaseDadosData = async (monthYear?: string, baseSindical?: string) => {
+    console.log('🔍 === LOAD BASE DADOS DATA ===');
+    console.log('🔍 Usuário:', user);
+    console.log('🔍 monthYear:', monthYear);
+    console.log('🔍 baseSindical:', baseSindical);
+    
     if (!user) {
       console.log('⚠️ Tentativa de carregar dados sem usuário autenticado');
       return;
@@ -119,9 +126,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         { step: 'Finalizando carregamento...', progress: 100 }
       ];
 
-      // Timeout para evitar travamento
+      // Timeout aumentado para bases grandes como SINTECT/SPM
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout: Carregamento demorou mais de 30 segundos')), 30000);
+        setTimeout(() => reject(new Error('Timeout: Carregamento demorou mais de 5 minutos')), 300000); // 5 minutos
       });
       
       // Importar dinamicamente para evitar importação circular
@@ -142,12 +149,18 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       }, 500);
       
       // Buscar dados da tabela base_dados com timeout
+      console.log('📡 Fazendo requisição para /api/dashboard/base-dados...');
       const baseDadosResponse = await Promise.race([
-        dashboardService.getBaseDados(monthYear),
+        dashboardService.getBaseDados(monthYear, baseSindical),
         timeoutPromise
       ]) as any;
       
       clearInterval(progressInterval);
+      
+      console.log('📡 Resposta recebida:', baseDadosResponse);
+      console.log('📡 Success:', baseDadosResponse.success);
+      console.log('📡 Data:', baseDadosResponse.data);
+      console.log('📡 Employees length:', baseDadosResponse.data?.employees?.length);
       
       if (baseDadosResponse.success && baseDadosResponse.data.employees.length > 0) {
         // Converter os dados para o formato ProcessedData
@@ -162,7 +175,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           selectedMonthYear: baseDadosResponse.data.selectedMonthYear,
           totalRecordsInDatabase: baseDadosResponse.data.totalRecordsInDatabase,
           filteredRecords: baseDadosResponse.data.filteredRecords,
-          availableMonths: baseDadosResponse.data.availableMonths
+          availableMonths: baseDadosResponse.data.availableMonths,
+          availableBasesSindicais: baseDadosResponse.data.availableBasesSindicais,
+          selectedBaseSindical: baseDadosResponse.data.selectedBaseSindical
         };
         
         setProcessedData(baseDadosData);
@@ -206,7 +221,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       
       // Timeout para evitar travamento
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout: Carregamento demorou mais de 30 segundos')), 30000);
+        setTimeout(() => reject(new Error('Timeout: Carregamento demorou mais de 60 segundos')), 60000);
       });
       
       // Importar dinamicamente para evitar importação circular

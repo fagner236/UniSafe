@@ -19,8 +19,8 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
     // Política de referrer
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     
-    // Política de conteúdo de segurança
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none';",
+    // Política de conteúdo de segurança - mais flexível para produção
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https: http:; frame-ancestors 'none';",
     
     // Previne cache de dados sensíveis
     'Cache-Control': 'no-cache, no-store, must-revalidate, private',
@@ -65,8 +65,9 @@ export const validateOrigin = (req: Request, res: Response, next: NextFunction) 
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:4173',
-    'https://unisafe.com', // Substitua pelo seu domínio de produção
-    'https://www.unisafe.com'
+    'https://unisafe.evia.com.br', // Substitua pelo seu domínio de produção
+    'https://www.unisafe.evia.com.br',
+    'https://unisafe-api-dot-evia-app.ue.r.appspot.com'
   ];
 
   // Permitir requisições sem origem (como mobile apps)

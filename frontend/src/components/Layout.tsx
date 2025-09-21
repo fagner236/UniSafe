@@ -3,26 +3,25 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './Footer';
 // import VersionNotification from './VersionNotification';
-import GhostUserMessage from './GhostUserMessage';
+import GuestUserMessage from './GuestUserMessage';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Layout = () => {
   const { user } = useAuth();
   const location = useLocation();
-  const isGhostUser = user?.perfil === 'ghost';
+  const isGuestUser = user?.perfil === 'guest';
   
-  // Verificar se estamos na página Dashboard (rota raiz), Base de Dados, Upload, Perfil, Configurações ou páginas administrativas
+  // Verificar se estamos na página Dashboard (rota raiz), Base de Dados, Perfil, Configurações ou páginas administrativas
   const isDashboard = location.pathname === '/';
   const isEmployees = location.pathname === '/employees';
-  const isUpload = location.pathname === '/upload';
   const isProfile = location.pathname === '/profile';
   const isSettings = location.pathname === '/settings';
   const isAdmin = location.pathname.startsWith('/admin');
-  const shouldHideFooter = isDashboard || isEmployees || isUpload || isProfile || isSettings || isAdmin;
+  const shouldHideFooter = isDashboard || isEmployees || isProfile || isSettings || isAdmin;
 
-  // Se for usuário Ghost, exibir apenas a mensagem de autorização pendente
-  if (isGhostUser) {
-    return <GhostUserMessage />;
+  // Se for usuário Guest, exibir apenas a mensagem de autorização pendente
+  if (isGuestUser) {
+    return <GuestUserMessage />;
   }
 
   return (
@@ -35,7 +34,7 @@ const Layout = () => {
             <Outlet />
           </div>
         </main>
-        {/* Ocultar Footer nas páginas Dashboard, Base de Dados, Upload, Perfil, Configurações e páginas administrativas */}
+        {/* Ocultar Footer nas páginas Dashboard, Base de Dados, Perfil, Configurações e páginas administrativas */}
         {!shouldHideFooter && <Footer />}
       </div>
       {/* <VersionNotification /> */}

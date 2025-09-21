@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatDate } from '@/utils/dateFormatter';
 import DashboardLoading from '@/components/DashboardLoading';
 import { 
   Users, 
@@ -33,37 +34,215 @@ const Dashboard = () => {
   // Estados para seletor de mês
   const [showMonthSelector, setShowMonthSelector] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState('');
+  
+  // Estados para seletor de base sindical
+  const [showBaseSindicalSelector, setShowBaseSindicalSelector] = useState(false);
+  const [selectedBaseSindical, setSelectedBaseSindical] = useState('');
+
+  // Estado para controlar o highlight do gráfico de jornadas
+  const [highlightedJornada, setHighlightedJornada] = useState<string | null>(null);
+
+  // Refs para controlar o estado e evitar loops
+  const isLoadingRef = useRef(false);
+  const lastLoadedBaseSindicalRef = useRef<string | null>(null);
+  const lastLoadedMonthRef = useRef<string | null>(null);
+  const isInitializedRef = useRef(false);
 
   // Função para verificar se o usuário é admin da empresa dona do sistema
   const isSystemOwnerAdmin = () => {
     return user?.perfil === 'admin' && user?.empresa?.cnpj === '41.115.030/0001-20';
   };
 
-  // Função para carregar dados da tabela base_dados
-  const handleLoadBaseDados = async () => {
+  // Função para carregar dados da tabela base_dados com debounce
+  const handleLoadBaseDados = useCallback(async (forceReload = false) => {
+    console.log('📊 === HANDLE LOAD BASE DADOS ===');
+    console.log('📊 Usuário:', user);
+    console.log('📊 selectedMonth:', selectedMonth);
+    console.log('📊 selectedBaseSindical:', selectedBaseSindical);
+    console.log('📊 forceReload:', forceReload);
+    console.log('📊 isLoadingRef.current:', isLoadingRef.current);
+    
+    // Evitar múltiplas requisições simultâneas
+    if (isLoadingRef.current || isLoadingBaseDados) {
+      console.log('⚠️ Carregamento já em andamento, ignorando requisição');
+      return;
+    }
+    
+    // Verificar se já carregou os mesmos dados
+    if (!forceReload && 
+        lastLoadedBaseSindicalRef.current === selectedBaseSindical && 
+        lastLoadedMonthRef.current === selectedMonth && 
+        processedData) {
+      console.log('⚠️ Dados já carregados para esta combinação, ignorando requisição');
+      return;
+    }
+    
     try {
-      await loadBaseDadosData();
+      isLoadingRef.current = true;
+      console.log('🚀 Iniciando carregamento...');
+      
+      await loadBaseDadosData(selectedMonth, selectedBaseSindical);
+      
+      // Atualizar refs após carregamento bem-sucedido
+      lastLoadedBaseSindicalRef.current = selectedBaseSindical;
+      lastLoadedMonthRef.current = selectedMonth;
+      
+      console.log('✅ Carregamento concluído com sucesso');
     } catch (error) {
-      console.error('Erro ao carregar dados da base_dados:', error);
+      console.error('❌ Erro ao carregar dados da base_dados:', error);
+    } finally {
+      isLoadingRef.current = false;
     }
-  };
+    console.log('📊 ===============================');
+  }, [user, selectedMonth, selectedBaseSindical, isLoadingBaseDados, loadBaseDadosData, processedData]);
 
-  // Efeito para definir o mês selecionado quando os dados forem carregados
+  // Efeito para inicialização única
   useEffect(() => {
-    if (processedData?.selectedMonthYear && !selectedMonth) {
-      setSelectedMonth(processedData.selectedMonthYear);
+    if (!isInitializedRef.current && user) {
+      console.log('🚀 Inicializando Dashboard...');
+      console.log('🚀 Usuário:', user);
+      console.log('🚀 Base sindical do usuário:', user.base_sindical);
+      
+      // Verificar se é admin da empresa dona do sistema
+      const isOwnerAdmin = isSystemOwnerAdmin();
+      
+      if (isOwnerAdmin) {
+        // Para admin dono do sistema: priorizar base sindical salva no localStorage
+        const savedBaseSindical = localStorage.getItem('selectedBaseSindical');
+        if (savedBaseSindical) {
+          console.log('🏢 Admin dono: Usando base sindical salva:', savedBaseSindical);
+          setSelectedBaseSindical(savedBaseSindical);
+        } else {
+          // Se não houver base salva, usar a base sindical do usuário
+          console.log('🏢 Admin dono: Usando base sindical do usuário:', user.base_sindical);
+          if (user.base_sindical) {
+            setSelectedBaseSindical(user.base_sindical);
+            localStorage.setItem('selectedBaseSindical', user.base_sindical);
+          }
+        }
+      } else {
+      // Para outros usuários: sempre usar a base sindical do usuário
+      if (user.base_sindical) {
+        console.log('🏢 Usuário comum: Definindo base sindical do usuário:', user.base_sindical);
+        console.log('🔐 VALIDAÇÃO: Base sindical do usuário:', user.base_sindical);
+        setSelectedBaseSindical(user.base_sindical);
+        localStorage.setItem('selectedBaseSindical', user.base_sindical);
+        
+        // Validação de segurança
+        if (user.base_sindical !== 'SINTECT/SPM' && user.email === 'fabyghira19@gmail.com') {
+          console.error('🚨 ERRO CRÍTICO: Base sindical incorreta para usuária fabyghira19@gmail.com');
+          console.error('🚨 Base esperada: SINTECT/SPM, Base recebida:', user.base_sindical);
+        }
+      } else {
+        console.log('⚠️ Nenhuma base sindical encontrada para o usuário');
+        console.log('⚠️ Dados do usuário:', user);
+      }
+      }
+      
+      // Definir mês selecionado
+      if (processedData?.selectedMonthYear && !selectedMonth) {
+        setSelectedMonth(processedData.selectedMonthYear);
+      }
+      
+      isInitializedRef.current = true;
     }
-  }, [processedData?.selectedMonthYear, selectedMonth]);
+  }, [user, processedData?.selectedMonthYear, selectedMonth]);
+
+  // Efeito para carregar dados quando necessário - Otimizado para evitar loops
+  useEffect(() => {
+    console.log('🔄 === VERIFICANDO CARREGAMENTO ===');
+    console.log('🔄 isInitializedRef.current:', isInitializedRef.current);
+    console.log('🔄 selectedBaseSindical:', selectedBaseSindical);
+    console.log('🔄 isLoadingRef.current:', isLoadingRef.current);
+    console.log('🔄 processedData:', !!processedData);
+    
+    if (isInitializedRef.current && selectedBaseSindical && !isLoadingRef.current) {
+      // Verificar se precisa carregar dados - lógica mais restritiva para evitar loops
+      const needsReload = !processedData || 
+                         (processedData.selectedBaseSindical !== selectedBaseSindical) ||
+                         (processedData.selectedMonthYear !== selectedMonth && selectedMonth);
+      
+      console.log('🔄 needsReload:', needsReload);
+      console.log('🔄 processedData.selectedBaseSindical:', processedData?.selectedBaseSindical);
+      console.log('🔄 processedData.selectedMonthYear:', processedData?.selectedMonthYear);
+      
+      // Carregar dados imediatamente sem debounce
+      if (needsReload) {
+        console.log('🔄 Carregando dados...');
+        console.log('🔄 Base sindical:', selectedBaseSindical);
+        console.log('🔄 Mês:', selectedMonth);
+        
+        // Carregar imediatamente para melhor performance
+        handleLoadBaseDados(true);
+      } else {
+        console.log('✅ Dados já estão atualizados, não precisa recarregar');
+      }
+    } else {
+      console.log('⚠️ Condições não atendidas para carregamento');
+    }
+    console.log('🔄 ===============================');
+  }, [selectedBaseSindical, selectedMonth, processedData]);
+
+  // Efeito para fechar seletores quando clicar fora deles
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      
+      // Verificar se o clique foi fora dos seletores
+      if (!target.closest('.month-selector') && !target.closest('.base-sindical-selector')) {
+        setShowMonthSelector(false);
+        setShowBaseSindicalSelector(false);
+      }
+    };
+
+    // Adicionar listener apenas se algum seletor estiver aberto
+    if (showMonthSelector || showBaseSindicalSelector) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMonthSelector, showBaseSindicalSelector]);
 
   // Função para atualizar dados quando o mês for selecionado
   const handleMonthChange = async (monthYear: string) => {
     try {
       setSelectedMonth(monthYear);
       setShowMonthSelector(false);
-      await loadBaseDadosData(monthYear);
+      await loadBaseDadosData(monthYear, selectedBaseSindical);
     } catch (error) {
       console.error('Erro ao carregar dados do mês selecionado:', error);
     }
+  };
+
+  // Função para lidar com mudança de base sindical
+  const handleBaseSindicalChange = async (baseSindical: string) => {
+    console.log('🏢 Mudando base sindical para:', baseSindical);
+    
+    // Evitar mudança desnecessária se já é a mesma base
+    if (baseSindical === selectedBaseSindical) {
+      console.log('🏢 Base sindical já selecionada, ignorando mudança');
+      setShowBaseSindicalSelector(false);
+      return;
+    }
+    
+    // Resetar refs para forçar recarregamento
+    lastLoadedBaseSindicalRef.current = null;
+    lastLoadedMonthRef.current = null;
+    
+    setSelectedBaseSindical(baseSindical);
+    setShowBaseSindicalSelector(false);
+    
+    // Salvar no localStorage para persistência
+    if (baseSindical) {
+      localStorage.setItem('selectedBaseSindical', baseSindical);
+    } else {
+      localStorage.removeItem('selectedBaseSindical');
+    }
+    
+    console.log('🏢 Base sindical alterada, dados serão recarregados automaticamente');
   };
 
   // Função para formatar o mês para exibição
@@ -90,31 +269,8 @@ const Dashboard = () => {
     }).format(value);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    const hour = date.getHours().toString().padStart(2, '0');
-    const minute = date.getMinutes().toString().padStart(2, '0');
-    
-    return `${day}/${month}/${year} às ${hour}h${minute}`;
-  };
 
-  // Carregar dados automaticamente quando a página for carregada
-  useEffect(() => {
-    if (user && !hasData) {
-      // Primeiro tentar carregar da tabela base_dados
-      handleLoadBaseDados();
-    }
-  }, [user, hasData]);
 
-  // Definir o mês selecionado quando os dados forem carregados
-  useEffect(() => {
-    if (processedData?.selectedMonthYear) {
-      setSelectedMonth(processedData.selectedMonthYear);
-    }
-  }, [processedData]);
 
   // Fechar seletor de mês quando clicar fora
   useEffect(() => {
@@ -217,7 +373,7 @@ const Dashboard = () => {
     return Object.values(seStats)
       .map(stat => ({
         ...stat,
-        averageMensalidade: stat.totalMensalidade / stat.count
+        averageMensalidade: stat.filiados > 0 ? stat.totalMensalidade / stat.filiados : 0
       }))
       .sort((a, b) => b.count - a.count);
   };
@@ -319,7 +475,7 @@ const Dashboard = () => {
     return Array.from(seStats.values())
       .map(stat => ({
         ...stat,
-        averageMensalidade: stat.count > 0 ? stat.totalMensalidade / stat.count : 0
+        averageMensalidade: stat.filiados > 0 ? stat.totalMensalidade / stat.filiados : 0
       }))
       .sort((a, b) => b.count - a.count);
   };
@@ -413,7 +569,7 @@ const Dashboard = () => {
     return Array.from(municipalityStats.values())
       .map(stat => ({
         ...stat,
-        averageMensalidade: stat.count > 0 ? stat.totalMensalidade / stat.count : 0
+        averageMensalidade: stat.filiados > 0 ? stat.totalMensalidade / stat.filiados : 0
       }))
       .sort((a, b) => b.count - a.count);
   };
@@ -509,7 +665,7 @@ const Dashboard = () => {
     return Object.values(municipalityStats)
       .map(stat => ({
         ...stat,
-        averageMensalidade: stat.totalMensalidade / stat.count
+        averageMensalidade: stat.filiados > 0 ? stat.totalMensalidade / stat.filiados : 0
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
@@ -590,7 +746,7 @@ const Dashboard = () => {
     return Object.values(locationStats)
       .map(stat => ({
         ...stat,
-        averageMensalidade: stat.totalMensalidade / stat.count
+        averageMensalidade: stat.filiados > 0 ? stat.totalMensalidade / stat.filiados : 0
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
@@ -688,7 +844,7 @@ const Dashboard = () => {
     return Array.from(locationStats.values())
       .map(stat => ({
         ...stat,
-        averageMensalidade: stat.count > 0 ? stat.totalMensalidade / stat.count : 0
+        averageMensalidade: stat.filiados > 0 ? stat.totalMensalidade / stat.filiados : 0
       }))
       .sort((a, b) => b.count - a.count);
   };
@@ -1041,23 +1197,51 @@ const Dashboard = () => {
       !col.toLowerCase().includes('nível')
     );
     
+    // Procurar pela coluna de filiados
+    const filiadosColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiado') || 
+      col.toLowerCase().includes('filiacao')
+    );
+    
     if (!cargoColumn) return [];
     
     const cargoStats = processedData.employees.reduce((acc, emp) => {
       const cargo = emp[cargoColumn as keyof typeof emp] as string;
       if (!cargo) return acc;
       
+      // Verifica se é filiado (tem valor na coluna filiados)
+      const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                       String((emp as any)[filiadosColumn]).trim() !== '' && 
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+      
       if (!acc[cargo]) {
-        acc[cargo] = { name: cargo, count: 0 };
+        acc[cargo] = { 
+          name: cargo, 
+          count: 0, 
+          filiados: 0, 
+          naoFiliados: 0 
+        };
       }
+      
       acc[cargo].count++;
+      
+      if (isFiliado) {
+        acc[cargo].filiados++;
+      } else {
+        acc[cargo].naoFiliados++;
+      }
+      
       return acc;
-    }, {} as Record<string, { name: string; count: number }>);
+    }, {} as Record<string, { name: string; count: number; filiados: number; naoFiliados: number }>);
     
     return Object.values(cargoStats)
       .map(stat => ({
         ...stat,
-        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0,
+        percentualFiliados: stat.count > 0 ? (stat.filiados / stat.count) * 100 : 0,
+        percentualNaoFiliados: stat.count > 0 ? (stat.naoFiliados / stat.count) * 100 : 0
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5); // Top 5
@@ -1101,23 +1285,51 @@ const Dashboard = () => {
       col.toLowerCase().includes('nível') || col.toLowerCase().includes('nivel')
     );
     
+    // Procurar pela coluna de filiados
+    const filiadosColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiado') || 
+      col.toLowerCase().includes('filiacao')
+    );
+    
     if (!nivelColumn) return [];
     
     const nivelStats = processedData.employees.reduce((acc, emp) => {
       const nivel = emp[nivelColumn as keyof typeof emp] as string;
       if (!nivel) return acc;
       
+      // Verifica se é filiado (tem valor na coluna filiados)
+      const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                       String((emp as any)[filiadosColumn]).trim() !== '' && 
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+      
       if (!acc[nivel]) {
-        acc[nivel] = { name: nivel, count: 0 };
+        acc[nivel] = { 
+          name: nivel, 
+          count: 0, 
+          filiados: 0, 
+          naoFiliados: 0 
+        };
       }
+      
       acc[nivel].count++;
+      
+      if (isFiliado) {
+        acc[nivel].filiados++;
+      } else {
+        acc[nivel].naoFiliados++;
+      }
+      
       return acc;
-    }, {} as Record<string, { name: string; count: number }>);
+    }, {} as Record<string, { name: string; count: number; filiados: number; naoFiliados: number }>);
     
     return Object.values(nivelStats)
       .map(stat => ({
         ...stat,
-        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0,
+        percentualFiliados: stat.count > 0 ? (stat.filiados / stat.count) * 100 : 0,
+        percentualNaoFiliados: stat.count > 0 ? (stat.naoFiliados / stat.count) * 100 : 0
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5); // Top 5
@@ -1131,23 +1343,66 @@ const Dashboard = () => {
       col.toLowerCase().includes('função') || col.toLowerCase().includes('funcao')
     );
     
+    // Procurar pela coluna de filiados
+    const filiadosColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiado') || 
+      col.toLowerCase().includes('filiacao')
+    );
+    
     if (!funcaoColumn) return [];
     
     const funcaoStats = processedData.employees.reduce((acc, emp) => {
       const funcao = emp[funcaoColumn as keyof typeof emp] as string;
-      if (!funcao) return acc;
       
-      if (!acc[funcao]) {
-        acc[funcao] = { name: funcao, count: 0 };
+      // Tratar valores NULL, undefined, vazios e strings "null"
+      if (!funcao || 
+          funcao === '' || 
+          funcao === null || 
+          funcao === undefined || 
+          String(funcao).toLowerCase() === 'null' ||
+          String(funcao).toLowerCase() === 'undefined' ||
+          String(funcao).trim() === '') {
+        return acc;
       }
-      acc[funcao].count++;
+      
+      const funcaoClean = String(funcao).trim();
+      
+      // Verifica se é filiado (tem valor na coluna filiados)
+      const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                       String((emp as any)[filiadosColumn]).trim() !== '' && 
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                       String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+      
+      if (!acc[funcaoClean]) {
+        acc[funcaoClean] = { 
+          name: funcaoClean, 
+          count: 0, 
+          filiados: 0, 
+          naoFiliados: 0 
+        };
+      }
+      
+      acc[funcaoClean].count++;
+      
+      if (isFiliado) {
+        acc[funcaoClean].filiados++;
+      } else {
+        acc[funcaoClean].naoFiliados++;
+      }
+      
       return acc;
-    }, {} as Record<string, { name: string; count: number }>);
+    }, {} as Record<string, { name: string; count: number; filiados: number; naoFiliados: number }>);
+    
+    // Calcular o total de empregados com função válida (não nula/vazia)
+    const totalComFuncao = Object.values(funcaoStats).reduce((sum, stat) => sum + stat.count, 0);
     
     return Object.values(funcaoStats)
       .map(stat => ({
         ...stat,
-        percentage: processedData.summary.validRecords > 0 ? (stat.count / processedData.summary.validRecords) * 100 : 0
+        percentage: totalComFuncao > 0 ? (stat.count / totalComFuncao) * 100 : 0,
+        percentualFiliados: stat.count > 0 ? (stat.filiados / stat.count) * 100 : 0,
+        percentualNaoFiliados: stat.count > 0 ? (stat.naoFiliados / stat.count) * 100 : 0
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5); // Top 5
@@ -1168,12 +1423,24 @@ const Dashboard = () => {
     
     const jornadaStats = processedData.employees.reduce((acc, emp) => {
       const jornada = emp[jornadaColumn as keyof typeof emp] as string;
-      if (!jornada) return acc;
       
-      if (!acc[jornada]) {
-        acc[jornada] = { name: jornada, count: 0 };
+      // Tratar valores NULL, undefined, vazios e strings "null"
+      if (!jornada || 
+          jornada === '' || 
+          jornada === null || 
+          jornada === undefined || 
+          String(jornada).toLowerCase() === 'null' ||
+          String(jornada).toLowerCase() === 'undefined' ||
+          String(jornada).trim() === '') {
+        return acc;
       }
-      acc[jornada].count++;
+      
+      const jornadaClean = String(jornada).trim();
+      
+      if (!acc[jornadaClean]) {
+        acc[jornadaClean] = { name: jornadaClean, count: 0 };
+      }
+      acc[jornadaClean].count++;
       return acc;
     }, {} as Record<string, { name: string; count: number }>);
     
@@ -1200,7 +1467,15 @@ const Dashboard = () => {
     
     const deficiencyStats = processedData.employees.reduce((acc, emp) => {
       const deficiency = (emp as any)[deficiencyColumn];
-      if (!deficiency || deficiency === '' || deficiency === null || deficiency === undefined) {
+      
+      // Tratar valores NULL, undefined, vazios e strings "null"
+      if (!deficiency || 
+          deficiency === '' || 
+          deficiency === null || 
+          deficiency === undefined || 
+          String(deficiency).toLowerCase() === 'null' ||
+          String(deficiency).toLowerCase() === 'undefined' ||
+          String(deficiency).trim() === '') {
         // Categoriza como "Sem Deficiência" se não houver informação
         if (!acc['Sem Deficiência']) {
           acc['Sem Deficiência'] = { name: 'Sem Deficiência', count: 0, color: '#e5e7eb' };
@@ -1210,7 +1485,7 @@ const Dashboard = () => {
       }
       
       // Normaliza o valor da deficiência
-      let normalizedDeficiency = deficiency.toString().trim();
+      let normalizedDeficiency = String(deficiency).trim();
       
       // Mapeia variações comuns para categorias padronizadas
       const deficiencyMapping: Record<string, string> = {
@@ -1297,7 +1572,15 @@ const Dashboard = () => {
     
     const motivoAfastamentoStats = processedData.employees.reduce((acc, emp) => {
       const motivo = (emp as any)[motivoAfastamentoColumn];
-      if (!motivo || motivo === '' || motivo === null || motivo === undefined) {
+      
+      // Tratar valores NULL, undefined, vazios e strings "null"
+      if (!motivo || 
+          motivo === '' || 
+          motivo === null || 
+          motivo === undefined || 
+          String(motivo).toLowerCase() === 'null' ||
+          String(motivo).toLowerCase() === 'undefined' ||
+          String(motivo).trim() === '') {
         // Categoriza como "Sem Afastamento" se não houver informação
         if (!acc['Sem Afastamento']) {
           acc['Sem Afastamento'] = { 
@@ -1544,6 +1827,11 @@ const Dashboard = () => {
       col.toLowerCase().includes('sector')
     );
     
+    const filiadosColumn = processedData.columns.find(col => 
+      col.toLowerCase().includes('filiado') || 
+      col.toLowerCase().includes('filiacao')
+    );
+    
     if (!birthDateColumn || !nameColumn) {
       return [];
     }
@@ -1576,6 +1864,8 @@ const Dashboard = () => {
       formattedBirthDate: string;
       day: number; // Para ordenação
       month: number; // Para ordenação
+      isFiliado: boolean;
+      filiadoText: string;
     }> = [];
     
     processedData.employees.forEach(emp => {
@@ -1636,6 +1926,13 @@ const Dashboard = () => {
             const gender = genderColumn ? (emp as any)[genderColumn] || 'Não informado' : 'Não informado';
             const location = locationColumn ? (emp as any)[locationColumn] || 'Não informado' : 'Não informado';
             
+            // Verifica se é filiado (tem valor na coluna filiados)
+            const isFiliado = filiadosColumn ? (emp as any)[filiadosColumn] && 
+                             String((emp as any)[filiadosColumn]).trim() !== '' && 
+                             String((emp as any)[filiadosColumn]).toLowerCase() !== 'null' &&
+                             String((emp as any)[filiadosColumn]).toLowerCase() !== 'undefined' &&
+                             String((emp as any)[filiadosColumn]).toLowerCase() !== 'n/a' : false;
+            
             // Calcula a idade
             const age = today.getFullYear() - date.getFullYear();
             const monthDiff = today.getMonth() - date.getMonth();
@@ -1655,7 +1952,9 @@ const Dashboard = () => {
               age: finalAge,
               formattedBirthDate,
               day: date.getDate(), // Para ordenação por dia
-              month: date.getMonth() // Para ordenação por mês
+              month: date.getMonth(), // Para ordenação por mês
+              isFiliado,
+              filiadoText: isFiliado ? 'Sim' : 'Não'
             });
           }
           
@@ -1811,74 +2110,163 @@ const Dashboard = () => {
           }
         </p>
         
-        {/* Seletor de mês sempre visível */}
-        <div className="mt-4 flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-5 w-5" style={{ color: '#ffc9c0' }} />
-            <span className="text-sm font-medium text-gray-700">Período dos dados:</span>
+        {/* Caixa de seleção de dados */}
+        <div className="mt-4 bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+              <Gift className="h-5 w-5 mr-2" style={{ color: '#ffc9c0' }} />
+              Selecione os dados desejados:
+            </h3>
           </div>
-          <div className="relative month-selector">
-            <button
-              onClick={() => setShowMonthSelector(!showMonthSelector)}
-              className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <span className="text-sm font-medium text-gray-700">
-                {selectedMonth ? formatMonthDisplay(selectedMonth) : 'Selecionar mês/ano'}
-              </span>
-              <ChevronDown className="h-4 w-4 text-gray-500" />
-            </button>
-            
-            {showMonthSelector && (
-              <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                <div className="p-2">
-                  <div className="text-xs font-medium text-gray-500 mb-2 px-2">Selecionar período:</div>
-                  {processedData?.availableMonths && processedData.availableMonths.length > 0 ? (
-                    processedData.availableMonths.map((monthYear) => (
+          
+          <div className="space-y-4">
+            {/* Seletores na mesma linha */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-8 space-y-4 lg:space-y-0">
+              {/* Seletor de mês sempre visível */}
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-5 w-5" style={{ color: '#ffc9c0' }} />
+                  <span className="text-sm font-medium text-gray-700">Período dos dados:</span>
+                </div>
+                <div className="relative month-selector">
+                  <button
+                    onClick={() => setShowMonthSelector(!showMonthSelector)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                  >
+                    <span className="text-sm font-medium text-gray-700">
+                      {selectedMonth ? formatMonthDisplay(selectedMonth) : 'Selecionar mês/ano'}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  </button>
+                  
+                  {showMonthSelector && (
+                    <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                      <div className="p-2">
+                        <div className="text-xs font-medium text-gray-500 mb-2 px-2">Selecionar período:</div>
+                        <div className="max-h-60 overflow-y-auto">
+                          {processedData?.availableMonths && processedData.availableMonths.length > 0 ? (
+                            processedData.availableMonths.map((monthYear) => (
+                              <button
+                                key={monthYear}
+                                onClick={() => handleMonthChange(monthYear)}
+                                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                  monthYear === selectedMonth
+                                    ? 'bg-blue-100 text-blue-800 font-medium'
+                                    : 'hover:bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                {formatMonthDisplay(monthYear)}
+                              </button>
+                            ))
+                          ) : processedData?.dataSource === 'base_dados' ? (
+                            <div className="text-sm text-gray-500 px-3 py-2">
+                              Nenhum mês disponível encontrado
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-500 px-3 py-2">
+                              Carregando meses disponíveis...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Seletor de base sindical - apenas para admin da empresa dona do sistema */}
+              {isSystemOwnerAdmin() && (
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <Users className="h-5 w-5" style={{ color: '#ffc9c0' }} />
+                    <span className="text-sm font-medium text-gray-700">Base Sindical:</span>
+                  </div>
+                  {/* Seletor de base sindical - apenas para dono do sistema */}
+                  {isSystemOwnerAdmin() && (
+                    <div className="relative base-sindical-selector">
                       <button
-                        key={monthYear}
-                        onClick={() => handleMonthChange(monthYear)}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                          monthYear === selectedMonth
-                            ? 'bg-blue-100 text-blue-800 font-medium'
-                            : 'hover:bg-gray-100 text-gray-700'
-                        }`}
+                        onClick={() => setShowBaseSindicalSelector(!showBaseSindicalSelector)}
+                        className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
                       >
-                        {formatMonthDisplay(monthYear)}
+                        <span className="text-sm font-medium text-gray-700">
+                          {selectedBaseSindical || 'Todas as bases'}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-gray-500" />
                       </button>
-                    ))
-                  ) : processedData?.dataSource === 'base_dados' ? (
-                    <div className="text-sm text-gray-500 px-3 py-2">
-                      Nenhum mês disponível encontrado
+                      
+                      {showBaseSindicalSelector && (
+                        <div className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                          <div className="p-2">
+                            <div className="text-xs font-medium text-gray-500 mb-2 px-2">Selecionar base sindical:</div>
+                            <div className="max-h-60 overflow-y-auto">
+                              <button
+                                onClick={() => handleBaseSindicalChange('')}
+                                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                  !selectedBaseSindical
+                                    ? 'bg-blue-100 text-blue-800 font-medium'
+                                    : 'hover:bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                Todas as bases
+                              </button>
+                              {processedData?.availableBasesSindicais && processedData.availableBasesSindicais.length > 0 ? (
+                                processedData.availableBasesSindicais.map((baseSindical) => (
+                                  <button
+                                    key={baseSindical}
+                                    onClick={() => handleBaseSindicalChange(baseSindical)}
+                                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                      baseSindical === selectedBaseSindical
+                                        ? 'bg-blue-100 text-blue-800 font-medium'
+                                        : 'hover:bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    {baseSindical}
+                                  </button>
+                                ))
+                              ) : (
+                                <div className="text-sm text-gray-500 px-3 py-2">
+                                  Nenhuma base sindical encontrada
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="text-sm text-gray-500 px-3 py-2">
-                      Carregando meses disponíveis...
+                  )}
+                  
+                  {/* Para usuários normais, mostrar apenas a base sindical atual */}
+                  {!isSystemOwnerAdmin() && (
+                    <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700">
+                        {selectedBaseSindical || user?.base_sindical || 'Base não definida'}
+                      </span>
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Card de informações do período selecionado */}
+            {processedData.selectedMonthYear && (
+              <div className="p-3 rounded-lg" style={{ backgroundColor: '#fff5f5', borderColor: '#ffc9c0', borderWidth: '1px', borderStyle: 'solid' }}>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ffc9c0' }}></div>
+                  <span className="text-sm font-medium" style={{ color: '#8b5a5a' }}>
+                    Dados do período: <strong>{formatMonthDisplay(processedData.selectedMonthYear)}</strong>
+                  </span>
+                </div>
+                <div className="mt-1 text-xs" style={{ color: '#a67a7a' }}>
+                  {processedData.totalRecordsInDatabase && processedData.filteredRecords && (
+                    <>
+                      Exibindo {processedData.filteredRecords.toLocaleString('pt-BR')} de {processedData.totalRecordsInDatabase.toLocaleString('pt-BR')} registros disponíveis
+                    </>
                   )}
                 </div>
               </div>
             )}
           </div>
         </div>
-
-        {/* Card de informações do período selecionado */}
-        {processedData.selectedMonthYear && (
-          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-sm font-medium text-blue-800">
-                Dados do período: <strong>{formatMonthDisplay(processedData.selectedMonthYear)}</strong>
-              </span>
-            </div>
-            <div className="mt-1 text-xs text-blue-600">
-              {processedData.totalRecordsInDatabase && processedData.filteredRecords && (
-                <>
-                  Exibindo {processedData.filteredRecords.toLocaleString('pt-BR')} de {processedData.totalRecordsInDatabase.toLocaleString('pt-BR')} registros disponíveis
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
 
@@ -2678,12 +3066,28 @@ const Dashboard = () => {
                   'text-[#1d335b]'
                 ];
                 return (
-                  <div key={cargo.name} className="relative overflow-hidden rounded-lg border border-gray-300 hover:shadow-md hover:border-[#1d335b] transition-all duration-300 min-h-[100px] lg:min-h-[120px]">
+                  <div key={cargo.name} className="relative overflow-hidden rounded-lg border border-gray-300 hover:shadow-md hover:border-[#1d335b] transition-all duration-300 min-h-[130px] lg:min-h-[150px]">
                     <div className={`${colors[index % colors.length]} p-3 ${textColors[index % textColors.length]} text-center h-full flex flex-col justify-center`}>
                       <div className="space-y-1 flex-1 flex flex-col justify-center">
                         <h4 className="font-semibold text-xs truncate leading-tight mb-1">{cargo.name}</h4>
                         <div className="text-lg lg:text-xl font-bold mb-1">{cargo.percentage.toFixed(1)}%</div>
-                        <p className="text-xs opacity-90">{cargo.count.toLocaleString('pt-BR')} funcionários</p>
+                        <p className="text-xs opacity-90 mb-2">{cargo.count.toLocaleString('pt-BR')} funcionários</p>
+                        
+                        {/* Percentuais e quantidades de filiação */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="opacity-80">Filiados:</span>
+                            <span className="font-semibold text-green-600">
+                              {cargo.filiados.toLocaleString('pt-BR')} ({cargo.percentualFiliados.toFixed(1)}%)
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="opacity-80">Não Filiados:</span>
+                            <span className="font-semibold text-red-600">
+                              {cargo.naoFiliados.toLocaleString('pt-BR')} ({cargo.percentualNaoFiliados.toFixed(1)}%)
+                            </span>
+                          </div>
+                        </div>
                       </div>
                       <div className="mt-2">
                         <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -2773,7 +3177,7 @@ const Dashboard = () => {
                     return (
                       <div key={nivel.name} className="relative group">
                         {/* Card principal */}
-                        <div className={`relative z-10 bg-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-lg hover:border-[#c9504c] transition-all duration-300 ${isEven ? 'lg:transform lg:-translate-y-2' : 'lg:transform lg:translate-y-2'}`}>
+                        <div className={`relative z-10 bg-white border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-[#c9504c] transition-all duration-300 ${isEven ? 'lg:transform lg:-translate-y-2' : 'lg:transform lg:translate-y-2'}`}>
                           {/* Indicador de nível */}
                           <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center">
                             <div className={`w-3 h-3 rounded-full ${isEven ? 'bg-[#c9504c]' : 'bg-[#ffc9c0]'}`}></div>
@@ -2783,7 +3187,23 @@ const Dashboard = () => {
                           <div className="text-center space-y-3">
                             <h4 className="font-bold text-sm text-gray-800 truncate leading-tight">{nivel.name}</h4>
                             <div className="text-2xl font-bold text-[#c9504c]">{nivel.percentage.toFixed(1)}%</div>
-                            <p className="text-xs text-gray-600">{nivel.count.toLocaleString('pt-BR')} funcionários</p>
+                            <p className="text-xs text-gray-600 mb-2">{nivel.count.toLocaleString('pt-BR')} funcionários</p>
+                            
+                            {/* Percentuais e quantidades de filiação */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-gray-600">Filiados:</span>
+                                <span className="font-semibold text-green-600">
+                                  {nivel.filiados.toLocaleString('pt-BR')} ({nivel.percentualFiliados.toFixed(1)}%)
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-gray-600">Não Filiados:</span>
+                                <span className="font-semibold text-red-600">
+                                  {nivel.naoFiliados.toLocaleString('pt-BR')} ({nivel.percentualNaoFiliados.toFixed(1)}%)
+                                </span>
+                              </div>
+                            </div>
                           </div>
                           
                           {/* Barra de progresso */}
@@ -2841,15 +3261,32 @@ const Dashboard = () => {
                 const textColors = ['text-[#c9504c]', 'text-white', 'text-[#c9504c]', 'text-white', 'text-[#c9504c]'];
                 
                 return (
-                  <div key={funcao.name} className={`${colors[index % colors.length]} ${textColors[index % textColors.length]} rounded-xl p-4 hover:shadow-md transition-all duration-300`}>
+                  <div key={funcao.name} className={`${colors[index % colors.length]} ${textColors[index % textColors.length]} rounded-xl p-5 hover:shadow-md transition-all duration-300`}>
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold text-sm truncate">{funcao.name}</h4>
                       <span className="text-xs opacity-75">#{index + 1}</span>
                     </div>
-                    <div className="text-center">
+                    <div className="text-center mb-3">
                       <div className="text-3xl font-bold mb-1">{funcao.count.toLocaleString('pt-BR')}</div>
                       <div className="text-sm opacity-75">funcionários</div>
                     </div>
+                    
+                    {/* Percentuais e quantidades de filiação */}
+                    <div className="space-y-1 mb-3">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="opacity-80">Filiados:</span>
+                        <span className="font-semibold text-green-600">
+                          {funcao.filiados.toLocaleString('pt-BR')} ({funcao.percentualFiliados.toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="opacity-80">Não Filiados:</span>
+                        <span className="font-semibold text-red-600">
+                          {funcao.naoFiliados.toLocaleString('pt-BR')} ({funcao.percentualNaoFiliados.toFixed(1)}%)
+                        </span>
+                      </div>
+                    </div>
+                    
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span>Distribuição</span>
@@ -2888,14 +3325,20 @@ const Dashboard = () => {
                       .slice(0, index)
                       .reduce((sum, j) => sum + (j.count / total) * 360, 0);
                     const angle = (jornada.count / total) * 360;
+                    const isHighlighted = highlightedJornada === jornada.name;
                     
                     return (
                       <div
                         key={jornada.name}
                         data-jornada={jornada.name}
-                        className="absolute inset-0 rounded-full"
+                        className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                          isHighlighted 
+                            ? 'ring-4 ring-white ring-opacity-70 scale-105 shadow-lg' 
+                            : 'hover:scale-102'
+                        }`}
                         style={{
-                          background: `conic-gradient(from ${startAngle}deg, ${colors[index % colors.length]} 0deg, ${colors[index % colors.length]} ${angle}deg, transparent ${angle}deg)`
+                          background: `conic-gradient(from ${startAngle}deg, ${colors[index % colors.length]} 0deg, ${colors[index % colors.length]} ${angle}deg, transparent ${angle}deg)`,
+                          filter: isHighlighted ? 'brightness(1.1) saturate(1.2)' : 'none'
                         }}
                       ></div>
                     );
@@ -2917,40 +3360,46 @@ const Dashboard = () => {
               <div className="space-y-3">
                 {getJornadaStats().map((jornada, index) => {
                   const colors = ['#2f4a8c', '#f9695f', '#1d335b', '#c9504c', '#ffc9c0'];
+                  const isHighlighted = highlightedJornada === jornada.name;
                   
                   return (
                     <div 
                       key={jornada.name} 
-                      className="flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-all duration-300 hover:bg-gray-50 hover:shadow-md hover:scale-105 group"
-                      onMouseEnter={() => {
-                        // Destacar a fatia correspondente no gráfico
-                        const fatia = document.querySelector(`[data-jornada="${jornada.name}"]`);
-                        if (fatia) {
-                          fatia.classList.add('ring-4', 'ring-white', 'ring-opacity-50');
-                        }
-                      }}
-                      onMouseLeave={() => {
-                        // Remover destaque da fatia
-                        const fatia = document.querySelector(`[data-jornada="${jornada.name}"]`);
-                        if (fatia) {
-                          fatia.classList.remove('ring-4', 'ring-white', 'ring-opacity-50');
-                        }
-                      }}
+                      className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-all duration-300 group ${
+                        isHighlighted 
+                          ? 'bg-blue-50 shadow-md scale-105 border-2 border-blue-200' 
+                          : 'hover:bg-gray-50 hover:shadow-md hover:scale-105'
+                      }`}
+                      onMouseEnter={() => setHighlightedJornada(jornada.name)}
+                      onMouseLeave={() => setHighlightedJornada(null)}
                     >
                       <div 
-                        className="w-4 h-4 rounded-full transition-transform duration-300 group-hover:scale-125"
-                        style={{ backgroundColor: colors[index % colors.length] }}
+                        className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                          isHighlighted ? 'scale-125 ring-2 ring-white' : 'group-hover:scale-125'
+                        }`}
+                        style={{ 
+                          backgroundColor: colors[index % colors.length],
+                          boxShadow: isHighlighted ? '0 0 0 2px white, 0 0 10px rgba(0,0,0,0.3)' : 'none'
+                        }}
                       ></div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm truncate group-hover:text-[#1d335b] transition-colors duration-300">{jornada.name}</span>
-                          <span className="text-sm font-bold text-gray-700 group-hover:text-[#c9504c] transition-colors duration-300">{jornada.count.toLocaleString('pt-BR')}</span>
+                          <span className={`font-medium text-sm truncate transition-colors duration-300 ${
+                            isHighlighted ? 'text-[#1d335b]' : 'group-hover:text-[#1d335b]'
+                          }`}>{jornada.name}</span>
+                          <span className={`text-sm font-bold transition-colors duration-300 ${
+                            isHighlighted ? 'text-[#c9504c]' : 'text-gray-700 group-hover:text-[#c9504c]'
+                          }`}>{jornada.count.toLocaleString('pt-BR')}</span>
                         </div>
-                        <div className="text-xs text-gray-500 group-hover:text-[#2f4a8c] transition-colors duration-300">{jornada.percentage.toFixed(1)}% do total</div>
+                        <div className={`text-xs transition-colors duration-300 ${
+                          isHighlighted ? 'text-[#2f4a8c]' : 'text-gray-500 group-hover:text-[#2f4a8c]'
+                        }`}>{jornada.percentage.toFixed(1)}% do total</div>
                       </div>
                       
                       {/* Indicador de hover */}
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className={`transition-opacity duration-300 ${
+                        isHighlighted ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}>
                         <div className="w-2 h-2 bg-[#c9504c] rounded-full"></div>
                       </div>
                     </div>
@@ -2977,7 +3426,7 @@ const Dashboard = () => {
 
 
             <div className="mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {getDeficiencyStats().filter(d => d.name !== 'Sem Deficiência').map((deficiency, index) => {
                   const iconMap: Record<string, string> = {
                     'Física': '🦽',
@@ -3310,8 +3759,9 @@ const Dashboard = () => {
               <div className="mt-8">
                 <div className="border-t border-gray-200 pt-6">
                   {/* Cabeçalho com controles de navegação */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
+                  <div className="mb-4">
+                    {/* Título e indicador - sempre na mesma linha */}
+                    <div className="flex items-center space-x-3 mb-3">
                       <h4 className="text-lg font-medium text-gray-900 flex items-center">
                         <span className="w-2 h-2 bg-[#c9504c] rounded-full mr-3"></span>
                         Aniversariantes da Semana
@@ -3338,42 +3788,47 @@ const Dashboard = () => {
                       })()}
                     </div>
                     
-                    {/* Controles de navegação */}
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={goToPreviousWeek}
-                        disabled={!getWeekInfo(selectedWeekOffset).canGoPrevious}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 ${
-                          getWeekInfo(selectedWeekOffset).canGoPrevious
-                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        ← Semana Anterior
-                      </button>
-                      
-                      <button
-                        onClick={goToCurrentWeek}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 ${
-                          selectedWeekOffset === 0
-                            ? 'bg-[#c9504c] text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        Semana Atual
-                      </button>
-                      
-                      <button
-                        onClick={goToNextWeek}
-                        disabled={!getWeekInfo(selectedWeekOffset).canGoNext}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-200 ${
-                          getWeekInfo(selectedWeekOffset).canGoNext
-                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        Próxima Semana →
-                      </button>
+                    {/* Controles de navegação - responsivos */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={goToPreviousWeek}
+                          disabled={!getWeekInfo(selectedWeekOffset).canGoPrevious}
+                          className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors duration-200 flex-1 sm:flex-none ${
+                            getWeekInfo(selectedWeekOffset).canGoPrevious
+                              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <span className="hidden sm:inline">← Semana Anterior</span>
+                          <span className="sm:hidden">← Anterior</span>
+                        </button>
+                        
+                        <button
+                          onClick={goToCurrentWeek}
+                          className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors duration-200 flex-1 sm:flex-none ${
+                            selectedWeekOffset === 0
+                              ? 'bg-[#c9504c] text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          <span className="hidden sm:inline">Semana Atual</span>
+                          <span className="sm:hidden">Atual</span>
+                        </button>
+                        
+                        <button
+                          onClick={goToNextWeek}
+                          disabled={!getWeekInfo(selectedWeekOffset).canGoNext}
+                          className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors duration-200 flex-1 sm:flex-none ${
+                            getWeekInfo(selectedWeekOffset).canGoNext
+                              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <span className="hidden sm:inline">Próxima Semana →</span>
+                          <span className="sm:hidden">Próxima →</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                   
@@ -3410,6 +3865,9 @@ const Dashboard = () => {
                           </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               IDADE
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              FILIADO
                             </th>
                           </tr>
                         </thead>
@@ -3468,6 +3926,19 @@ const Dashboard = () => {
                                       : 'bg-[#ffc9c0] text-[#c9504c]'
                                   }`}>
                                     {person.age} anos
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    isBirthdayToday
+                                      ? person.isFiliado
+                                        ? 'bg-green-100 text-green-800 border border-green-300'
+                                        : 'bg-red-100 text-red-800 border border-red-300'
+                                      : person.isFiliado
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {person.filiadoText}
                                   </span>
                                 </td>
                               </tr>

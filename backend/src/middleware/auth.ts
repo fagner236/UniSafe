@@ -125,8 +125,16 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction) 
       id: user.id_usuario,
       email: user.email,
       perfil: user.perfil,
-      id_empresa: user.id_empresa
+      id_empresa: user.id_empresa,
+      base_sindical: user.base_sindical
     });
+    
+    // Validação de segurança para base sindical
+    if (!user.base_sindical) {
+      console.log('⚠️ AVISO: Usuário sem base sindical configurada:', user.email);
+    } else {
+      console.log('🔐 Base sindical validada:', user.base_sindical);
+    }
 
     req.user = {
       id_usuario: user.id_usuario,

@@ -242,13 +242,13 @@ const SystemLogs = () => {
           </div>
           
           {/* Aviso de Segurança */}
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#ffc9c0', borderLeft: '4px solid #c9504c' }}>
+          <div className="p-4 rounded-lg" style={{ backgroundColor: '#fff5f5', borderColor: '#ffc9c0', borderWidth: '1px', borderStyle: 'solid' }}>
             <div className="flex">
               <div className="flex-shrink-0">
                 <Shield className="h-5 w-5" style={{ color: '#1d335b' }} />
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium" style={{ color: '#1d335b' }}>
+                <p className="text-sm font-medium" style={{ color: '#8b5a5a' }}>
                   <strong>Auditoria:</strong> Todos os logs são mantidos para fins de auditoria e conformidade. 
                   As informações são confidenciais e devem ser tratadas com segurança.
                 </p>

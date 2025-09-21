@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { Search, Download, Eye, Edit, Filter, ChevronUp, ChevronDown, X, User, Briefcase, FileText, Building, MapPin, Printer, FileSpreadsheet, Mail, Phone, Camera, Save, CameraIcon, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, Download, Eye, Edit, Filter, ChevronUp, ChevronDown, X, User, Briefcase, FileText, Building, MapPin, Printer, FileSpreadsheet, Mail, Phone, Camera, Save, CameraIcon, CheckCircle, AlertCircle, ArrowLeft, Database } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const Employees = () => {
   const { processedData, hasData } = useData();
-  const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -109,10 +109,6 @@ const Employees = () => {
     );
   };
 
-  // Função para verificar se o usuário é admin da empresa dona do sistema
-  const isSystemOwnerAdmin = () => {
-    return user?.perfil === 'admin' && user?.empresa?.cnpj === '41.115.030/0001-20';
-  };
 
   // Função para validar e-mail
   const validateEmail = (email: string) => {
@@ -125,13 +121,16 @@ const Employees = () => {
     // Remove tudo que não é dígito
     const numbers = value.replace(/\D/g, '');
     
+    // Limita a 11 dígitos
+    const limitedNumbers = numbers.slice(0, 11);
+    
     // Aplica a máscara (XX) XXXXX-XXXX
-    if (numbers.length <= 2) {
-      return numbers;
-    } else if (numbers.length <= 7) {
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    if (limitedNumbers.length <= 2) {
+      return limitedNumbers;
+    } else if (limitedNumbers.length <= 7) {
+      return `(${limitedNumbers.slice(0, 2)}) ${limitedNumbers.slice(2)}`;
     } else {
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+      return `(${limitedNumbers.slice(0, 2)}) ${limitedNumbers.slice(2, 7)}-${limitedNumbers.slice(7, 11)}`;
     }
   };
 
@@ -214,14 +213,21 @@ const Employees = () => {
 
   // Função para abrir o modal de visualização
   const handleViewEmployee = async (employee: any) => {
+    console.log('🔍 Empregado selecionado para visualização:', employee);
     setSelectedEmployee(employee);
     
     // Obter matrícula do empregado
-    const matricula = employee.matricula || employee.Matrícula || employee.MATRÍCULA || employee.Matricula;
+    const matriculaRaw = employee.matricula || employee.Matrícula || employee.MATRÍCULA || employee.Matricula;
+    console.log('🔍 Matrícula extraída (raw):', matriculaRaw);
+    
+    // Normalizar matrícula removendo pontos, hífens e espaços
+    const matricula = matriculaRaw ? matriculaRaw.replace(/[.\-\s]/g, '') : null;
+    console.log('🔍 Matrícula normalizada:', matricula);
     
     if (matricula) {
       try {
         // Buscar dados completos do empregado na tabela empregados
+        console.log('🔍 Buscando dados do empregado na API...');
         const response = await fetch(`/api/empregados/${matricula}`, {
           method: 'GET',
           headers: {
@@ -230,24 +236,34 @@ const Employees = () => {
           }
         });
 
+        console.log('🔍 Resposta da API:', response.status, response.statusText);
+
         if (response.ok) {
           const result = await response.json();
           const empregadoData = result.data;
           console.log('📊 Dados completos do empregado encontrados:', empregadoData);
+          console.log('📸 Foto do empregado:', empregadoData.foto);
           
           // Combinar dados da tabela com dados da API (incluindo foto)
-          setSelectedEmployee({
+          const combinedData = {
             ...employee,
             foto: empregadoData.foto,
             email: empregadoData.email || employee.email || employee.Email || employee.EMAIL,
             celular: empregadoData.celular || employee.celular || employee.Celular || employee.CELULAR
-          });
+          };
+          
+          console.log('📊 Dados combinados:', combinedData);
+          setSelectedEmployee(combinedData);
         } else {
+          const errorData = await response.json();
+          console.log('📊 Erro na API:', errorData);
           console.log('📊 Nenhum dado adicional encontrado para matrícula:', matricula);
         }
       } catch (error) {
         console.error('❌ Erro ao buscar dados do empregado:', error);
       }
+    } else {
+      console.log('❌ Nenhuma matrícula encontrada no empregado');
     }
     
     setShowViewModal(true);
@@ -303,13 +319,35 @@ const Employees = () => {
 
       // Configurar preview da foto se existir
       if (existingData?.foto) {
-        // Definir a foto imediatamente
-        setFotoPreview(existingData.foto);
-        
-        // Forçar re-renderização para garantir que a imagem seja exibida
-        setTimeout(() => {
-          setForceRender(prev => prev + 1);
-        }, 50);
+        // Converter foto para base64 para garantir que carregue
+        try {
+          const baseUrl = import.meta.env.MODE === 'production' 
+            ? window.location.origin 
+            : 'http://localhost:3000';
+          const fullUrl = `${baseUrl}${existingData.foto}`;
+          
+          console.log('🖼️ Convertendo foto para base64 no modal de edição:', fullUrl);
+          
+          const response = await fetch(fullUrl);
+          const blob = await response.blob();
+          
+          // Converter blob para base64
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result as string;
+            setFotoPreview(base64);
+            console.log('✅ Foto convertida para base64 no modal de edição');
+            
+            // Forçar re-renderização para garantir que a imagem seja exibida
+            setTimeout(() => {
+              setForceRender(prev => prev + 1);
+            }, 50);
+          };
+          reader.readAsDataURL(blob);
+        } catch (error) {
+          console.error('❌ Erro ao converter foto para base64 no modal de edição:', error);
+          setFotoPreview(null);
+        }
       } else {
         setFotoPreview(null);
       }
@@ -387,18 +425,32 @@ const Employees = () => {
 
   // Função para salvar as alterações
   const handleSaveEmployee = async () => {
+    // Limpar erros anteriores
+    setEmailError('');
+    setCelularError('');
+    
     // Validar campos antes de salvar
     let hasErrors = false;
     
-    if (editFormData.email && !validateEmail(editFormData.email)) {
-      setEmailError('E-mail inválido');
-      hasErrors = true;
+    console.log('🔍 Dados do formulário antes da validação:', editFormData);
+    
+    // Validar email
+    if (editFormData.email && editFormData.email.trim() !== '') {
+      if (!validateEmail(editFormData.email.trim())) {
+        setEmailError('E-mail inválido');
+        hasErrors = true;
+      }
     }
     
-    if (editFormData.celular && !validateCelular(editFormData.celular)) {
-      setCelularError('Celular deve ter 11 dígitos');
-      hasErrors = true;
+    // Validar celular
+    if (editFormData.celular && editFormData.celular.trim() !== '') {
+      if (!validateCelular(editFormData.celular.trim())) {
+        setCelularError('Celular deve ter 11 dígitos');
+        hasErrors = true;
+      }
     }
+    
+    console.log('🔍 Erros encontrados:', { hasErrors, emailError, celularError });
     
     if (hasErrors) {
       return;
@@ -415,23 +467,42 @@ const Employees = () => {
         return;
       }
 
-      // Preparar dados para envio
+      // Preparar dados para envio (limpos e validados)
       const formData = new FormData();
-      formData.append('matricula', matricula);
-      formData.append('email', editFormData.email || '');
-      formData.append('celular', editFormData.celular || '');
+      formData.append('matricula', matricula.trim());
+      
+      // Limpar e enviar email
+      if (editFormData.email && editFormData.email.trim() !== '') {
+        formData.append('email', editFormData.email.trim().toLowerCase());
+      } else {
+        formData.append('email', '');
+      }
+      
+      // Limpar e enviar celular (manter formato com parênteses)
+      if (editFormData.celular && editFormData.celular.trim() !== '') {
+        // Manter formato (XX) XXXXX-XXXX
+        formData.append('celular', editFormData.celular.trim());
+      } else {
+        formData.append('celular', '');
+      }
       
       // Adicionar foto se existir
       if (editFormData.foto) {
         formData.append('foto', editFormData.foto);
       }
 
-      console.log('Salvando empregado na tabela empregados:', {
+      console.log('🔍 Dados sendo enviados:', {
         matricula,
         email: editFormData.email,
         celular: editFormData.celular,
         foto: editFormData.foto?.name
       });
+      
+      // Log dos dados do FormData
+      console.log('🔍 FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}:`, value);
+      }
       
       // Fazer requisição para o backend
       const response = await fetch('/api/empregados', {
@@ -443,21 +514,28 @@ const Employees = () => {
       });
 
       const result = await response.json();
+      
+      console.log('🔍 Resposta do servidor:', {
+        status: response.status,
+        ok: response.ok,
+        result: result
+      });
 
       if (!response.ok) {
-        throw new Error(result.message || 'Erro ao salvar empregado');
+        console.error('❌ Erro na resposta do servidor:', result);
+        throw new Error(result.message || 'Erro ao salvar empregado(a)');
       }
 
-      console.log('✅ Empregado salvo com sucesso:', result.data);
+      console.log('✅ Dados do(a) empregado(a) atualizado(a) com sucesso!', result.data);
       
       // Fechar modal após salvamento
       handleCloseEditModal();
       
       // Mostrar notificação de sucesso
-      alert(result.message || 'Empregado salvo com sucesso!');
+      alert(result.message || 'Dados do(a) empregado(a) atualizado(a) com sucesso!');
       
     } catch (error) {
-      console.error('❌ Erro ao salvar empregado:', error);
+      console.error('❌ Erro ao salvar empregado(a):', error);
       const errorMessage = error instanceof Error ? error.message : 'Tente novamente.';
       alert(`Erro ao salvar as alterações: ${errorMessage}`);
     } finally {
@@ -614,7 +692,7 @@ const Employees = () => {
   };
 
   // Função para imprimir dados do empregado
-  const handlePrintEmployee = () => {
+  const handlePrintEmployee = async () => {
     if (!selectedEmployee) return;
 
     // Criar uma nova janela para impressão
@@ -623,6 +701,34 @@ const Employees = () => {
     if (!printWindow) {
       alert('Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está desabilitado.');
       return;
+    }
+
+    // Converter foto para base64 se existir
+    let photoBase64 = null;
+    if (selectedEmployee.foto) {
+      try {
+        const baseUrl = import.meta.env.MODE === 'production' 
+          ? window.location.origin 
+          : 'http://localhost:3000';
+        const fullUrl = `${baseUrl}${selectedEmployee.foto}`;
+        
+        console.log('🖼️ Convertendo foto para base64:', fullUrl);
+        
+        const response = await fetch(fullUrl);
+        const blob = await response.blob();
+        
+        // Converter blob para base64
+        const reader = new FileReader();
+        photoBase64 = await new Promise((resolve) => {
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        
+        console.log('✅ Foto convertida para base64 com sucesso');
+      } catch (error) {
+        console.error('❌ Erro ao converter foto para base64:', error);
+        photoBase64 = null;
+      }
     }
 
     // Formatar os dados para impressão
@@ -672,7 +778,7 @@ const Employees = () => {
         // Verificar se é campo de data de afastamento
         const afastColumns = [
           'Data Afastamento', 'DATA AFASTAMENTO', 'data afastamento', 'DataAfastamento', 
-          'Leave Date', 'LEAVE DATE', 'data_afast'
+          'Leave Date', 'LEAVE DATE', 'data_afast', 'DATA_AFAST'
         ];
         if (afastColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
           return formatAfastDate(value);
@@ -731,10 +837,52 @@ const Employees = () => {
             color: #1d335b;
             font-size: 14px;
           }
+          .summary-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+          }
+          .employee-photo {
+            flex-shrink: 0;
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #1d335b;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .employee-photo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          .photo-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+            color: #6c757d;
+          }
+          .placeholder-icon {
+            font-size: 30px;
+            margin-bottom: 5px;
+          }
+          .placeholder-text {
+            font-size: 9px;
+            text-align: center;
+            line-height: 1.2;
+          }
           .summary-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 8px;
+            flex: 1;
           }
           .summary-item {
             background: white;
@@ -823,22 +971,48 @@ const Employees = () => {
 
         <div class="summary">
           <h3>Resumo</h3>
-          <div class="summary-grid">
-            <div class="summary-item">
-              <div class="summary-label">Nome Completo</div>
-              <div class="summary-value">${selectedEmployee.nome || selectedEmployee.Nome || selectedEmployee.NOME || '-'}</div>
+          <div class="summary-content">
+            <div class="employee-photo">
+              ${photoBase64 ? `
+                <img src="${photoBase64}" 
+                     alt="Foto do Empregado" 
+                     class="employee-photo-img" />
+              ` : `
+                <div class="photo-placeholder">
+                  <div class="placeholder-icon">👤</div>
+                  <div class="placeholder-text">Foto não disponível</div>
+                </div>
+              `}
             </div>
-            <div class="summary-item">
-              <div class="summary-label">Matrícula</div>
-              <div class="summary-value">${formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-')}</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">Cargo</div>
-              <div class="summary-value">${selectedEmployee.cargo || selectedEmployee.Cargo || selectedEmployee.CARGO || '-'}</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">Lotação</div>
-              <div class="summary-value">${selectedEmployee.lotacao || selectedEmployee.Lotacao || selectedEmployee.LOTAÇÃO || selectedEmployee.lotação || selectedEmployee.Lotacao || '-'}</div>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <div class="summary-label">Nome Completo</div>
+                <div class="summary-value">${selectedEmployee.nome || selectedEmployee.Nome || selectedEmployee.NOME || '-'}</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Matrícula</div>
+                <div class="summary-value">${formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-')}</div>
+              </div>
+              ${(selectedEmployee.email || selectedEmployee.Email || selectedEmployee.EMAIL) ? `
+              <div class="summary-item">
+                <div class="summary-label">E-mail</div>
+                <div class="summary-value">${selectedEmployee.email || selectedEmployee.Email || selectedEmployee.EMAIL || '-'}</div>
+              </div>
+              ` : ''}
+              ${(selectedEmployee.celular || selectedEmployee.Celular || selectedEmployee.CELULAR) ? `
+              <div class="summary-item">
+                <div class="summary-label">Celular</div>
+                <div class="summary-value">${selectedEmployee.celular || selectedEmployee.Celular || selectedEmployee.CELULAR || '-'}</div>
+              </div>
+              ` : ''}
+              <div class="summary-item">
+                <div class="summary-label">Cargo</div>
+                <div class="summary-value">${selectedEmployee.cargo || selectedEmployee.Cargo || selectedEmployee.CARGO || '-'}</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-label">Lotação</div>
+                <div class="summary-value">${selectedEmployee.lotacao || selectedEmployee.Lotacao || selectedEmployee.LOTAÇÃO || selectedEmployee.lotação || selectedEmployee.Lotacao || '-'}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1023,6 +1197,19 @@ const Employees = () => {
     setCurrentPage(1);
   }, [searchTerm, itemsPerPage, sortColumn, sortDirection]);
 
+  // Verificar se não há dados e redirecionar para Dashboard
+  useEffect(() => {
+    if (!hasData) {
+      console.log('📊 Nenhum dado carregado - redirecionando para Dashboard');
+      // Pequeno delay para mostrar a mensagem antes do redirecionamento
+      const timer = setTimeout(() => {
+        navigate('/');
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasData, navigate]);
+
   if (!hasData) {
     return (
       <div className="space-y-6">
@@ -1034,29 +1221,29 @@ const Employees = () => {
         <div className="card">
           <div className="card-content">
             <div className="text-center py-12">
-              <div className="mx-auto h-16 w-16 text-gray-400 mb-4">📄</div>
+              <div className="mx-auto h-16 w-16 text-gray-400 mb-4">
+                <Database className="w-16 h-16" />
+              </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Nenhum arquivo carregado
+                Nenhum dado carregado
               </h3>
               <p className="text-gray-500 mb-6">
-                {isSystemOwnerAdmin() 
-                  ? 'Para visualizar os dados, faça upload de um arquivo Excel ou CSV na página de Upload.'
-                  : 'Para visualizar os dados, é necessário que um administrador da empresa dona do sistema faça upload de um arquivo Excel ou CSV.'
-                }
+                Não há dados disponíveis para visualização. O sistema trabalha com dados do banco de dados.
               </p>
-              {isSystemOwnerAdmin() ? (
-                <a
-                  href="/upload"
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-white font-medium transition-colors"
+              <div className="flex flex-col items-center space-y-3">
+                <div className="flex items-center text-sm text-gray-600">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  <span>Redirecionando para o Dashboard em 3 segundos...</span>
+                </div>
+                <button
+                  onClick={() => navigate('/')}
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90"
                   style={{ backgroundColor: '#1d335b' }}
                 >
-                  Ir para Upload
-                </a>
-              ) : (
-                <div className="text-sm text-gray-500 bg-gray-100 px-4 py-2 rounded-lg">
-                  Apenas administradores da empresa dona do sistema podem fazer upload de arquivos
-                </div>
-              )}
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Ir para Dashboard Agora
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1294,8 +1481,16 @@ const Employees = () => {
                           ];
                           if (dateColumns.includes(column)) {
                             try {
-                              // Como as datas já foram convertidas durante o processamento, apenas exibe o valor
-                              displayValue = value;
+                              // Verificar se é campo de data de afastamento
+                              const afastColumns = [
+                                'Data Afastamento', 'DATA AFASTAMENTO', 'data afastamento', 'DataAfastamento', 
+                                'Leave Date', 'LEAVE DATE', 'data_afast', 'DATA_AFAST'
+                              ];
+                              if (afastColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
+                                displayValue = formatAfastDate(value);
+                              } else {
+                                displayValue = value;
+                              }
                             } catch (error) {
                               displayValue = value;
                             }
@@ -1378,85 +1573,94 @@ const Employees = () => {
 
           {/* Controles de Paginação */}
           {sortedEmployees.length > 0 && (
-            <div className="mt-6 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+            <div className="mt-6">
+              {/* Informações da página - sempre visível */}
+              <div className="text-sm text-gray-700 mb-3 text-center sm:text-left">
                 Página {currentPage} de {totalPages} ({sortedEmployees.length.toLocaleString('pt-BR')} registros)
               </div>
               
-              <div className="flex items-center space-x-2">
-                {/* Botão Primeira Página */}
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Primeira página"
-                >
-                  ««
-                </button>
-                
-                {/* Botão Página Anterior */}
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Página anterior"
-                >
-                  «
-                </button>
-                
-                {/* Números das páginas */}
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNumber;
-                    if (totalPages <= 5) {
-                      pageNumber = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNumber = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNumber = totalPages - 4 + i;
-                    } else {
-                      pageNumber = currentPage - 2 + i;
-                    }
-                    
-                    return (
-                      <button
-                        key={pageNumber}
-                        onClick={() => setCurrentPage(pageNumber)}
-                        className={`px-3 py-1 text-sm border rounded-md transition-colors ${
-                          currentPage === pageNumber
-                            ? 'bg-red-600 text-white border-red-600'
-                            : 'border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                        }`}
-                        style={{
-                          backgroundColor: currentPage === pageNumber ? '#c9504c' : undefined,
-                          borderColor: currentPage === pageNumber ? '#c9504c' : undefined
-                        }}
-                      >
-                        {pageNumber}
-                      </button>
-                    );
-                  })}
+              {/* Controles de navegação - responsivos */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center gap-3">
+                {/* Botões principais - sempre visíveis */}
+                <div className="flex items-center justify-center space-x-1 sm:space-x-2">
+                  {/* Botão Primeira Página */}
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Primeira página"
+                  >
+                    <span className="hidden sm:inline">««</span>
+                    <span className="sm:hidden">««</span>
+                  </button>
+                  
+                  {/* Botão Página Anterior */}
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Página anterior"
+                  >
+                    <span className="hidden sm:inline">«</span>
+                    <span className="sm:hidden">«</span>
+                  </button>
+                  
+                  {/* Números das páginas */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNumber;
+                      if (totalPages <= 5) {
+                        pageNumber = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNumber = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNumber = totalPages - 4 + i;
+                      } else {
+                        pageNumber = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => setCurrentPage(pageNumber)}
+                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded-md transition-colors ${
+                            currentPage === pageNumber
+                              ? 'bg-red-600 text-white border-red-600'
+                              : 'border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                          }`}
+                          style={{
+                            backgroundColor: currentPage === pageNumber ? '#c9504c' : undefined,
+                            borderColor: currentPage === pageNumber ? '#c9504c' : undefined
+                          }}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Botão Próxima Página */}
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Próxima página"
+                  >
+                    <span className="hidden sm:inline">»</span>
+                    <span className="sm:hidden">»</span>
+                  </button>
+                  
+                  {/* Botão Última Página */}
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Última página"
+                  >
+                    <span className="hidden sm:inline">»»</span>
+                    <span className="sm:hidden">»»</span>
+                  </button>
                 </div>
-                
-                {/* Botão Próxima Página */}
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Próxima página"
-                >
-                  »
-                </button>
-                
-                {/* Botão Última Página */}
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Última página"
-                >
-                  »»
-                </button>
               </div>
             </div>
           )}
@@ -1572,7 +1776,7 @@ const Employees = () => {
                         // Verificar se é campo de data de afastamento
                         const afastColumns = [
                           'Data Afastamento', 'DATA AFASTAMENTO', 'data afastamento', 'DataAfastamento', 
-                          'Leave Date', 'LEAVE DATE', 'data_afast'
+                          'Leave Date', 'LEAVE DATE', 'data_afast', 'DATA_AFAST'
                         ];
                         if (afastColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
                           displayValue = formatAfastDate(value);
@@ -1608,6 +1812,76 @@ const Employees = () => {
                   </div>
                   
                   <div className="grid grid-cols-1 gap-4">
+                    {/* Card da Foto do Empregado - PRIMEIRO */}
+                    {selectedEmployee.foto && (
+                      <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-4 rounded-lg border border-gray-200">
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="relative">
+                            <img
+                              src={(() => {
+                                const fotoUrl = selectedEmployee.foto;
+                                console.log('🖼️ Foto URL original da API:', fotoUrl);
+                                
+                                if (!fotoUrl) {
+                                  console.log('❌ Nenhuma foto encontrada na API');
+                                  return 'https://picsum.photos/96/96';
+                                }
+                                
+                                // Construir URL completa baseada na resposta da API
+                                const baseUrl = import.meta.env.MODE === 'production' 
+                                  ? window.location.origin 
+                                  : 'http://localhost:3000';
+                                
+                                const fullUrl = `${baseUrl}${fotoUrl}`;
+                                console.log('🖼️ URL construída:', fullUrl);
+                                
+                                // SOLUÇÃO: Converter para base64 para evitar problemas de CORS
+                                fetch(fullUrl)
+                                  .then(response => response.blob())
+                                  .then(blob => {
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                      const img = document.querySelector('img[alt="Foto do Empregado"]') as HTMLImageElement;
+                                      if (img) {
+                                        img.src = reader.result as string;
+                                        console.log('✅ Foto convertida para base64 e carregada');
+                                      }
+                                    };
+                                    reader.readAsDataURL(blob);
+                                  })
+                                  .catch(error => {
+                                    console.error('❌ Erro ao converter foto para base64:', error);
+                                  });
+                                
+                                // Retornar uma imagem de loading temporária
+                                return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHZpZXdCb3g9IjAgMCA5NiA5NiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDgiIGN5PSI0OCIgcj0iNDgiIGZpbGw9IiNGM0Y0RjYiLz4KPHBhdGggZD0iTTQ4IDI0QzU0LjYyNzQgMjQgNjAgMjkuMzcyNiA2MCAzNkM2MCA0Mi42Mjc0IDU0LjYyNzQgNDggNDggNDhDNDEuMzcyNiA0OCAzNiA0Mi42Mjc0IDM2IDM2QzM2IDI5LjM3MjYgNDEuMzcyNiAyNCA0OCAyNFoiIGZpbGw9IiM5Q0EzQUYiLz4KPHBhdGggZD0iTTI0IDcyQzI0IDYzLjE2MzQgMzEuMTYzNCA1NiA0MCA1Nkg1NkM2NC44MzY2IDU2IDcyIDYzLjE2MzQgNzIgNzJWNzJIMjRaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=';
+                              })()}
+                              alt="Foto do Empregado"
+                              className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-lg"
+                              onError={(e) => {
+                                console.error('❌ Erro ao carregar foto:', e.currentTarget.src);
+                                console.log('🔍 URL que falhou:', e.currentTarget.src);
+                                console.log('🔍 Status do erro:', e);
+                                console.log('🔄 Usando fallback: Picsum');
+                                e.currentTarget.src = 'https://picsum.photos/96/96';
+                                e.currentTarget.alt = 'Foto não disponível';
+                              }}
+                              onLoad={(e) => {
+                                console.log('✅ Foto carregada com sucesso:', e.currentTarget.src);
+                              }}
+                            />
+                            <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white rounded-full p-1">
+                              <Camera className="h-3 w-3" />
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <h4 className="font-medium text-gray-900 text-sm">Foto do Empregado</h4>
+                            <p className="text-xs text-gray-500">Matrícula: {selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Card de Informações Principais */}
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
                       <div className="flex items-center space-x-3">
@@ -1638,6 +1912,40 @@ const Employees = () => {
                       </div>
                     </div>
 
+                    {/* Card de E-mail - APÓS MATRÍCULA */}
+                    {(selectedEmployee.email || selectedEmployee.Email || selectedEmployee.EMAIL) && (
+                      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-200">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-blue-100 rounded-full">
+                            <Mail className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">E-mail</h4>
+                            <p className="text-sm text-gray-600">
+                              {selectedEmployee.email || selectedEmployee.Email || selectedEmployee.EMAIL || '-'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Card de Celular - APÓS E-MAIL */}
+                    {(selectedEmployee.celular || selectedEmployee.Celular || selectedEmployee.CELULAR) && (
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-green-100 rounded-full">
+                            <Phone className="h-5 w-5 text-green-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">Celular</h4>
+                            <p className="text-sm text-gray-600">
+                              {selectedEmployee.celular || selectedEmployee.Celular || selectedEmployee.CELULAR || '-'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Card de Cargo */}
                     <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-4 rounded-lg border border-purple-200">
                       <div className="flex items-center space-x-3">
@@ -1667,43 +1975,6 @@ const Employees = () => {
                         </div>
                       </div>
                     </div>
-
-                    {/* Card da Foto do Empregado */}
-                    {selectedEmployee.foto && (
-                      <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-4 rounded-lg border border-gray-200">
-                        <div className="flex flex-col items-center space-y-3">
-                          <div className="relative">
-                            <img
-                              src={(() => {
-                                const fotoUrl = selectedEmployee.foto;
-                                if (fotoUrl.startsWith('http')) {
-                                  return fotoUrl;
-                                } else {
-                                  // Para desenvolvimento, usar localhost, para produção usar a URL base
-                                  const baseUrl = import.meta.env.MODE === 'production' 
-                                    ? window.location.origin 
-                                    : 'http://localhost:3000';
-                                  return `${baseUrl}${fotoUrl}`;
-                                }
-                              })()}
-                              alt="Foto do Empregado"
-                              className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-lg"
-                              onError={(e) => {
-                                // Se a imagem não carregar, esconder o elemento
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                            <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white rounded-full p-1">
-                              <Camera className="h-3 w-3" />
-                            </div>
-                          </div>
-                          <div className="text-center">
-                            <h4 className="font-medium text-gray-900 text-sm">Foto do Empregado</h4>
-                            <p className="text-xs text-gray-500">Matrícula: {selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
                   </div>
                 </div>
@@ -1868,7 +2139,7 @@ const Employees = () => {
                     {/* Upload de Arquivo */}
                     <div className="border-2 border-gray-300 border-dashed rounded-md p-4 hover:border-gray-400 transition-colors">
                       <div className="text-center">
-                        <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                        <FileText className="mx-auto h-8 w-8 text-gray-400 mb-2" />
                         <label
                           htmlFor="foto-upload"
                           className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-500"

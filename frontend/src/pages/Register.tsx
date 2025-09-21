@@ -130,8 +130,10 @@ const Register = () => {
   const handleCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Se o CNPJ já existe, não tentar cadastrar empresa, apenas ir para aba de usuário
     if (cnpjExists) {
-      setError('Este CNPJ já está cadastrado no sistema');
+      setSuccess('Empresa já cadastrada! Agora cadastre o usuário administrador.');
+      setActiveTab('user');
       return;
     }
     
@@ -274,13 +276,11 @@ const Register = () => {
       </div>
 
       {/* Lado direito - Formulário de cadastro */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1d335b] to-[#2f4a8c]">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-[#ffc9c0] lg:bg-gradient-to-br lg:from-[#1d335b] lg:to-[#2f4a8c]">
         <div className="max-w-md w-full space-y-8">
           {/* Logo mobile */}
           <div className="lg:hidden text-center">
             <img src="/logo.svg.png" alt="evia Logo" className="mx-auto h-16 w-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900">evia</h2>
-            <p className="text-sm text-gray-600">Crie sua conta no sistema</p>
           </div>
 
           <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">
@@ -304,11 +304,11 @@ const Register = () => {
               </button>
               <button
                 onClick={() => setActiveTab('user')}
-                disabled={!companyId}
+                disabled={!companyId && !cnpjExists}
                 className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
                   activeTab === 'user'
                     ? 'bg-white text-[#2f4a8c] shadow-sm'
-                    : companyId
+                    : (companyId || cnpjExists)
                     ? 'text-gray-600 hover:text-gray-800'
                     : 'text-gray-400 cursor-not-allowed'
                 }`}
@@ -554,16 +554,16 @@ const Register = () => {
                   
                   <button
                     type="submit"
-                    disabled={isLoading || cnpjExists === true}
+                    disabled={isLoading}
                     className={`flex-1 py-3 px-4 rounded-xl font-medium text-lg shadow-lg transition-all duration-200 ${
                       cnpjExists === true
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        ? 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 hover:shadow-xl transform hover:-translate-y-0.5'
                         : 'bg-gradient-to-r from-[#1d335b] to-[#2f4a8c] text-white hover:from-[#2f4a8c] hover:to-[#1d335b] focus:outline-none focus:ring-2 focus:ring-[#2f4a8c] focus:ring-offset-2 hover:shadow-xl transform hover:-translate-y-0.5'
                     }`}
                   >
                     {isLoading ? 'Cadastrando...' : (
                       <>
-                        Cadastrar Empresa
+                        {cnpjExists === true ? 'Continuar para Usuário' : 'Cadastrar Empresa'}
                         <ArrowRight className="inline-block w-5 h-5 ml-2" />
                       </>
                     )}

@@ -1,5 +1,6 @@
 
 import { Zap, Shield, Database, TrendingUp } from 'lucide-react';
+import { getVersionString } from '../config/version';
 
 const Footer = () => {
   return (
@@ -18,9 +19,11 @@ const Footer = () => {
               Soluções inteligentes para gestão de recursos humanos.
             </p>
             <div className="flex items-center space-x-2 text-xs text-gray-500">
-              <span>© 2025 Via Eletrônica Ltda.</span>
+              <span>© 2025 Evia</span>
               <span>•</span>
               <span>Todos os direitos reservados</span>
+              <span>•</span>
+              <span className="font-medium">{getVersionString()}</span>
             </div>
           </div>
 

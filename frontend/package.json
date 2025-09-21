@@ -1,6 +1,6 @@
 {
   "name": "unisafe-frontend",
-  "version": "1.8.8",
+  "version": "1.9.1",
   "description": "Frontend do sistema UniSafe - Sistema de Gestão de Funcionários e Empresas",
   "type": "module",
   "scripts": {
@@ -23,6 +23,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/node": "^24.5.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
@@ -48,7 +49,7 @@
     "tailwindcss",
     "vite"
   ],
-  "author": "Evia - Via Eletrônica Ltda.",
+  "author": "Evia",
   "license": "MIT",
   "repository": {
     "type": "git",
