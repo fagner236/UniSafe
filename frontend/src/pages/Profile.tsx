@@ -70,7 +70,7 @@ const Profile = () => {
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/auth/profile', {
+      const response = await fetch('${config.apiUrl}/auth/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
