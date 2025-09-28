@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
 import { Search, Download, Eye, Edit, Filter, ChevronUp, ChevronDown, X, User, Briefcase, FileText, Building, MapPin, Printer, FileSpreadsheet, Mail, Phone, Camera, Save, CameraIcon, CheckCircle, AlertCircle, ArrowLeft, Database } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { config } from '@/config/environment';
+
 
 const Employees = () => {
   const { processedData, hasData } = useData();
@@ -23,6 +25,7 @@ const Employees = () => {
   const [editFormData, setEditFormData] = useState({
     email: '',
     celular: '',
+    base_sindical: '',
     foto: null as File | null
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -228,7 +231,7 @@ const Employees = () => {
       try {
         // Buscar dados completos do empregado na tabela empregados
         console.log('🔍 Buscando dados do empregado na API...');
-        const response = await fetch(`/api/empregados/${matricula}`, {
+        const response = await fetch(`${config.apiUrl}/empregados/${matricula}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -291,7 +294,7 @@ const Employees = () => {
 
     try {
       // Buscar dados existentes do empregado na tabela empregados
-      const response = await fetch(`/api/empregados/${matricula}`, {
+      const response = await fetch(`${config.apiUrl}/empregados/${matricula}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -314,6 +317,7 @@ const Employees = () => {
       setEditFormData({
         email: existingData?.email || employee.email || employee.Email || employee.EMAIL || '',
         celular: formatCelular(celularValue),
+        base_sindical: existingData?.base_sindical || employee.base_sindical || '',
         foto: null
       });
 
@@ -364,6 +368,7 @@ const Employees = () => {
       setEditFormData({
         email: employee.email || employee.Email || employee.EMAIL || '',
         celular: formatCelular(celularValue),
+        base_sindical: employee.base_sindical || '',
         foto: null
       });
       setEmailError('');
@@ -382,6 +387,7 @@ const Employees = () => {
     setEditFormData({
       email: '',
       celular: '',
+      base_sindical: '',
       foto: null
     });
     setEmailError('');
@@ -488,7 +494,16 @@ const Employees = () => {
       
       // Adicionar foto se existir
       if (editFormData.foto) {
-        formData.append('foto', editFormData.foto);
+        //SALVAR A FOTO NO BUCKET E PEGAR A URL      
+        //const bucket = editFormData?.base_sindical ?? "unisafe";
+        //console.log("BUCKET", bucket);
+        //uploadFile(editFormData.foto, bucket).then((fotoUrl) => {
+        //  console.log('🔍 Foto enviada para o bucket, URL:', fotoUrl);
+        formData.append('base_sindical', editFormData?.base_sindical);
+        formData.append('foto', editFormData?.foto);
+        //}).catch((error) => {
+        //  console.error('❌ Erro ao enviar foto para o bucket:', error);
+        //});
       }
 
       console.log('🔍 Dados sendo enviados:', {
@@ -505,7 +520,7 @@ const Employees = () => {
       }
       
       // Fazer requisição para o backend
-      const response = await fetch('/api/empregados', {
+      const response = await fetch(`${config.apiUrl}/empregados`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -706,29 +721,29 @@ const Employees = () => {
     // Converter foto para base64 se existir
     let photoBase64 = null;
     if (selectedEmployee.foto) {
-      try {
-        const baseUrl = import.meta.env.MODE === 'production' 
-          ? window.location.origin 
-          : 'http://localhost:3000';
-        const fullUrl = `${baseUrl}${selectedEmployee.foto}`;
+      //try {
+        //const baseUrl = import.meta.env.MODE === 'production' 
+        //  ? window.location.origin 
+        //  : 'http://localhost:3000';
+        //const fullUrl = selectedEmployee.foto;
+        photoBase64=selectedEmployee.foto; 
+        console.log('🖼️ Convertendo foto para base64:', photoBase64);
         
-        console.log('🖼️ Convertendo foto para base64:', fullUrl);
-        
-        const response = await fetch(fullUrl);
-        const blob = await response.blob();
+        //const response = await fetch(fullUrl);
+        //const blob = await response.blob();
         
         // Converter blob para base64
-        const reader = new FileReader();
-        photoBase64 = await new Promise((resolve) => {
-          reader.onload = () => resolve(reader.result);
-          reader.readAsDataURL(blob);
-        });
+        //const reader = new FileReader();
+        //photoBase64 = await new Promise((resolve) => {
+        //  reader.onload = () => resolve(reader.result);
+        //  reader.readAsDataURL(blob);
+        //});
         
-        console.log('✅ Foto convertida para base64 com sucesso');
-      } catch (error) {
-        console.error('❌ Erro ao converter foto para base64:', error);
-        photoBase64 = null;
-      }
+        //console.log('✅ Foto convertida para base64 com sucesso');
+     // } catch (error) {
+     //   console.error('❌ Erro ao converter foto para base64:', error);
+     //   photoBase64 = null;
+     // }
     }
 
     // Formatar os dados para impressão
@@ -1828,11 +1843,11 @@ const Employees = () => {
                                 }
                                 
                                 // Construir URL completa baseada na resposta da API
-                                const baseUrl = import.meta.env.MODE === 'production' 
-                                  ? window.location.origin 
-                                  : 'http://localhost:3000';
+                                //const baseUrl = import.meta.env.MODE === 'production' 
+                                //  ? window.location.origin 
+                                //  : 'http://localhost:3000';
                                 
-                                const fullUrl = `${baseUrl}${fotoUrl}`;
+                                const fullUrl = fotoUrl;
                                 console.log('🖼️ URL construída:', fullUrl);
                                 
                                 // SOLUÇÃO: Converter para base64 para evitar problemas de CORS
@@ -1844,6 +1859,7 @@ const Employees = () => {
                                       const img = document.querySelector('img[alt="Foto do Empregado"]') as HTMLImageElement;
                                       if (img) {
                                         img.src = reader.result as string;
+                                        selectedEmployee.foto = reader.result as string; // Atualiza o estado com a imagem em base64
                                         console.log('✅ Foto convertida para base64 e carregada');
                                       }
                                     };
@@ -2060,7 +2076,11 @@ const Employees = () => {
               {/* Formulário de Edição */}
               <div className="space-y-4">
                 <h4 className="text-sm font-medium text-gray-900">Informações de Contato</h4>
-                
+                <input 
+                  type="hidden"
+                  value={selectedEmployee.base_sindical}
+                  name="base_sindical"
+                />
                 {/* Campo E-mail */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

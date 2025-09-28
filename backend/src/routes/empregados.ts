@@ -5,10 +5,14 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
+import { generatePresignedUrl, getFileUrl } from "../bucket/bucket.service";
+import { url } from 'inspector';
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Configuração do multer para upload de fotos
+const upload = multer({ storage: multer.memoryStorage() }); // arquivo em memória
+/*
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../../uploads/empregados');
@@ -36,6 +40,7 @@ const upload = multer({
     }
   }
 });
+*/
 
 // Middleware para verificar se o usuário é admin
 const requireAdmin = async (req: any, res: any, next: any) => {
@@ -58,16 +63,17 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
 // POST /api/empregados - Criar ou atualizar empregado
 router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res: any) => {
+//router.post('/', auth, requireAdmin, async (req: any, res: any) => {
   try {
     console.log('📊 === ROTA /api/empregados POST CHAMADA ===');
     console.log('📊 Usuário logado ID:', req.user.id_usuario);
     console.log('📊 Dados recebidos:', req.body);
     console.log('📊 Arquivo de foto:', req.file);
 
-    const { matricula, email, celular } = req.body;
+    const { matricula, email, celular, base_sindical } = req.body;
     const id_usuario = req.user.id_usuario;
 
-    console.log('🔍 Dados recebidos brutos:', { matricula, email, celular });
+    console.log('🔍 Dados recebidos brutos:', { matricula, email, celular, base_sindical });
 
     // Validações básicas
     if (!matricula) {
@@ -152,7 +158,18 @@ router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res
 
     let fotoPath = null;
     if (req.file) {
-      fotoPath = `/uploads/empregados/${req.file.filename}`;
+//file.mimetype.startsWith('image/')
+      try {
+        const url = await generatePresignedUrl({
+          bucket: base_sindical.replace('/','_') || "unisafe",
+          file: req.file,
+          key:`${matricula}.png`,
+        });
+        console.log("URL para upload:", url);
+        fotoPath = url
+      } catch (err) {
+        console.error("Erro ao gerar URL:", err);
+      }
     }
 
     if (empregadoExistente) {
@@ -164,7 +181,7 @@ router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res
         data: {
           email: cleanEmail || null,
           celular: cleanCelular || null,
-          foto: fotoPath || empregadoExistente.foto, // Manter foto existente se não enviar nova
+          foto: `${matricula}.png` || empregadoExistente.foto, // Manter foto existente se não enviar nova
           id_usuario,
           data_atualizacao: new Date()
         }
@@ -276,6 +293,10 @@ router.get('/:matricula', auth, requireAdmin, async (req: any, res: any) => {
       where: { matricula }
     });
 
+    const base = await prisma.baseDados.findFirst({
+      where: { matricula: matricula }
+    });
+
     if (!empregado) {
       return res.status(404).json({
         success: false,
@@ -285,6 +306,19 @@ router.get('/:matricula', auth, requireAdmin, async (req: any, res: any) => {
 
     console.log('✅ Empregado(a) encontrado(a):', empregado.id_empregados);
     console.log('📸 Foto do(a) empregado(a):', empregado.foto);
+
+    
+    try {
+      const url = await getFileUrl({
+        bucket: base!.base_sindical.replace('/','_') || "unisafe",
+        key:empregado.foto!
+      });
+      console.log("URL para upload:", url);
+      empregado.foto = url
+    } catch (err) {
+      console.error("Erro ao gerar URL:", err);
+    }
+
 
     return res.json({
       success: true,
