@@ -325,10 +325,10 @@ const Employees = () => {
       if (existingData?.foto) {
         // Converter foto para base64 para garantir que carregue
         try {
-          const baseUrl = import.meta.env.MODE === 'production' 
-            ? window.location.origin 
-            : 'http://localhost:3000';
-          const fullUrl = `${baseUrl}${existingData.foto}`;
+          //const baseUrl = import.meta.env.MODE === 'production' 
+          //  ? window.location.origin 
+          //  : 'http://localhost:3000';
+          const fullUrl = existingData.foto;
           
           console.log('🖼️ Convertendo foto para base64 no modal de edição:', fullUrl);
           
