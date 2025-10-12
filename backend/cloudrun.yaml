@@ -1,0 +1,60 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: unisafe-api-cloudrun
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/vpc-access-connector: projects/evia-app/locations/us-central1/connectors/default-connector
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/vpc-access-connector: projects/evia-app/locations/us-central1/connectors/default-connector
+        run.googleapis.com/vpc-access-egress: all-traffic
+    spec:
+      containerConcurrency: 100
+      timeoutSeconds: 300
+      containers:
+      - image: gcr.io/evia-app/unisafe-backend
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          value: "mysql://user-db:%40Evia%2A%2A2021@localhost/UniSafe?socket=/cloudsql/evia-app:us-central1:evia-db"
+        - name: JWT_SECRET
+          value: "sindicato-super-secret-jwt-key-change-this-in-production"
+        - name: NODE_ENV
+          value: "production"
+        - name: CORS_ORIGIN
+          value: "https://unisafe.evia.com.br"
+        - name: VITE_API_URL
+          value: "https://unisafe-api-dot-evia-app.ue.r.appspot.com"
+        - name: TZ
+          value: "America/Sao_Paulo"
+        - name: ENVIRONMENT
+          value: "False"
+        - name: REDIS_HOST
+          value: "10.69.225.179"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          value: ""
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "0.5"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
