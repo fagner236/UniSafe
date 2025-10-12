@@ -1,6 +1,6 @@
 {
   "name": "unisafe-backend",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Backend do sistema UniSafe - Sistema de Gestão de Funcionários e Empresas",
   "main": "dist/index.js",
   "scripts": {
@@ -37,6 +37,7 @@
     "@aws-sdk/client-s3": "^3.896.0",
     "@aws-sdk/s3-request-presigner": "^3.896.0",
     "@prisma/client": "^6.14.0",
+    "@types/redis": "^4.0.10",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -48,6 +49,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
     "multer": "^1.4.5-lts.1",
+    "redis": "^5.8.3",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

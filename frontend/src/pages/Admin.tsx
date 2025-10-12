@@ -5,7 +5,8 @@ import {
   Shield, 
   Settings,
   FileText,
-  UserCheck
+  UserCheck,
+  Zap
 } from 'lucide-react';
 
 const Admin = () => {
@@ -62,6 +63,13 @@ const Admin = () => {
       icon: UserCheck,
       href: '/admin/validation',
       color: 'bg-teal-600'
+    },
+    {
+      title: 'Administração de Cache',
+      description: 'Gerenciar cache Redis e limpeza manual',
+      icon: Zap,
+      href: '/admin/cache',
+      color: 'bg-yellow-600'
     }
   ];
 

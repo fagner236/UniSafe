@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth';
+import { cacheService } from '../config/redis';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -213,6 +214,11 @@ router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res
 
       console.log('✅ Novo(a) empregado(a) criado(a) com sucesso:', novoEmpregado.id_empregados);
 
+      // Invalidar cache do empregado após criação
+      const empregadoCacheKey = `empregado:${matricula}`;
+      await cacheService.del(empregadoCacheKey);
+      console.log('🗑️ Cache do empregado invalidado após criação');
+
       return res.json({
         success: true,
         message: 'Empregado(a) criado(a) com sucesso',
@@ -288,10 +294,29 @@ router.get('/:matricula', auth, requireAdmin, async (req: any, res: any) => {
     console.log('📊 Matrícula solicitada:', req.params.matricula);
 
     const { matricula } = req.params;
-
-    const empregado = await prisma.empregado.findUnique({
-      where: { matricula }
-    });
+    
+    // Cache específico para empregados (TTL curto - dados podem ser editados)
+    const empregadoCacheKey = `empregado:${matricula}`;
+    console.log('🔍 Verificando cache de empregado...');
+    
+    let empregado = await cacheService.get(empregadoCacheKey);
+    
+    if (empregado) {
+      console.log('⚡ Cache HIT! Empregado encontrado no Redis (TTL: 1 hora)');
+    } else {
+      console.log('❌ Cache MISS! Buscando empregado no banco...');
+      
+      empregado = await prisma.empregado.findUnique({
+        where: { matricula }
+      });
+      
+      // Salvar no cache por 1 hora (dados podem ser editados)
+      if (empregado) {
+        console.log('💾 Salvando empregado no cache Redis (TTL: 1 hora)...');
+        await cacheService.set(empregadoCacheKey, empregado, 3600); // 1 hora
+        console.log('✅ Empregado salvo no cache Redis');
+      }
+    }
 
     const base = await prisma.baseDados.findFirst({
       where: { matricula: matricula }

@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth, AuthRequest } from '../middleware/auth';
+import { cacheService } from '../config/redis';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -120,7 +121,7 @@ const getAvailableMonths = (records: any[]): string[] => {
   return monthYearDates.map(item => item.monthYear);
 };
 
-// GET /api/dashboard/base-dados - Versão otimizada para melhor performance
+// GET /api/dashboard/base-dados - Versão otimizada com Redis Cache
 router.get('/base-dados', auth, async (req: AuthRequest, res) => {
   try {
     const startTime = Date.now();
@@ -131,6 +132,24 @@ router.get('/base-dados', auth, async (req: AuthRequest, res) => {
     const selectedMonthYear = req.query.monthYear as string;
     const selectedBaseSindical = req.query.baseSindical as string;
     const page = parseInt(req.query.page as string) || 1;
+    
+    // Criar chave de cache única baseada nos parâmetros
+    const cacheKey = `dashboard:${userBaseSindical}:${selectedBaseSindical || 'default'}:${selectedMonthYear || 'latest'}`;
+    
+    // Tentar buscar do cache primeiro
+    console.log('🔍 Verificando cache Redis...');
+    const cachedData = await cacheService.get(cacheKey);
+    
+    if (cachedData) {
+      console.log('⚡ Cache HIT! Retornando dados do Redis (dados mensais - cache válido por 30 dias)');
+      const endTime = Date.now();
+      cachedData.data.processingTime = endTime - startTime;
+      cachedData.data.cacheHit = true;
+      cachedData.data.cacheStrategy = 'monthly_data';
+      return res.json(cachedData);
+    }
+    
+    console.log('❌ Cache MISS! Processando dados do banco (primeira consulta do mês)...');
     
     // Verificar se é admin da empresa dona do sistema
     const isOwnerByCNPJ = req.user?.empresa?.cnpj === '41.115.030/0001-20' && req.user?.perfil === 'admin';
@@ -376,7 +395,7 @@ router.get('/base-dados', auth, async (req: AuthRequest, res) => {
     const endTime = Date.now();
     console.log(`✅ Processamento concluído em ${endTime - startTime}ms`);
 
-    return res.json({
+    const responseData = {
       success: true,
       data: {
         employees,
@@ -400,9 +419,17 @@ router.get('/base-dados', auth, async (req: AuthRequest, res) => {
         availableBasesSindicais: availableBasesSindicais,
         selectedBaseSindical: finalBaseSindical,
         processingTime: endTime - startTime,
+        cacheHit: false,
         pagination: null
       }
-    });
+    };
+
+    // Salvar no cache Redis (TTL de 30 dias - dados mensais)
+    console.log('💾 Salvando dados no cache Redis (TTL: 30 dias - dados mensais)...');
+    await cacheService.set(cacheKey, responseData, 2592000); // 30 dias
+    console.log('✅ Dados salvos no cache Redis (válido por 30 dias)');
+
+    return res.json(responseData);
   } catch (error) {
     console.error('Erro ao buscar dados da base_dados:', error);
     return res.status(500).json({

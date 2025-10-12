@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { cacheService } from '../config/redis';
 
 const prisma = new PrismaClient();
 
@@ -73,25 +74,43 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction) 
       });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id_usuario: userId },
-      select: {
-        id_usuario: true,
-        email: true,
-        perfil: true,
-        nome: true,
-        id_empresa: true,
-        base_sindical: true,
-        empresa: {
-          select: {
-            id_empresa: true,
-            razao_social: true,
-            nome_fantasia: true,
-            cnpj: true
+    // Tentar buscar usuário do cache primeiro
+    const userCacheKey = `user:${userId}`;
+    console.log('🔍 Verificando cache de usuário...');
+    let user = await cacheService.get(userCacheKey);
+    
+    if (user) {
+      console.log('⚡ Cache HIT! Usuário encontrado no Redis');
+    } else {
+      console.log('❌ Cache MISS! Buscando usuário no banco...');
+      
+      user = await prisma.user.findUnique({
+        where: { id_usuario: userId },
+        select: {
+          id_usuario: true,
+          email: true,
+          perfil: true,
+          nome: true,
+          id_empresa: true,
+          base_sindical: true,
+          empresa: {
+            select: {
+              id_empresa: true,
+              razao_social: true,
+              nome_fantasia: true,
+              cnpj: true
+            }
           }
         }
+      });
+
+      // Salvar no cache por 15 minutos
+      if (user) {
+        console.log('💾 Salvando usuário no cache Redis...');
+        await cacheService.set(userCacheKey, user, 900); // 15 minutos
+        console.log('✅ Usuário salvo no cache Redis');
       }
-    });
+    }
 
     console.log('🔐 Usuário encontrado no banco:', user);
 

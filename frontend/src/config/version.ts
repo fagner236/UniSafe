@@ -1,7 +1,7 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.9.1';
+export const APP_VERSION = '1.9.2';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema de Gestão de Funcionários e Empresas';
 export const APP_AUTHOR = 'Evia';
@@ -19,6 +19,22 @@ export const VERSION_FEATURES = [
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.9.2',
+    date: 'Janeiro 2025',
+    features: [
+      '🔧 Correção do Menu Perfil - Erro "Erro interno do servidor"',
+      '🎨 Padronização da página Administração de Cache',
+      '🛡️ Validações de dados aprimoradas no backend',
+      '⚡ URLs da API corrigidas e otimizadas',
+      '🎯 Design consistente com padrões do sistema',
+      '✨ Botões e textos padronizados em toda interface',
+      '🔒 Segurança aprimorada com validações adequadas',
+      '📱 Interface responsiva e moderna',
+      '🎨 Paleta de cores unificada (#c9504c)',
+      '✅ Sistema totalmente funcional e estável'
+    ]
+  },
   {
     version: '1.9.1',
     date: 'Setembro 2024',
@@ -272,18 +288,18 @@ export const VERSION_INFO = {
   description: APP_DESCRIPTION,
   author: APP_AUTHOR,
   website: APP_WEBSITE,
-  releaseDate: '2025-09-15',
+  releaseDate: '2025-01-15',
   changes: [
-    '🎨 Layout Otimizado do Dashboard',
-    '📱 Card de Informações em Linha Separada',
-    '🔧 Organização Visual Melhorada',
-    '📊 Hierarquia Clara de Elementos',
-    '🎯 Experiência do Usuário Aprimorada',
-    '📱 Layout Responsivo Aprimorado',
-    '✨ Interface Mais Limpa e Organizada',
-    '🔄 Fluxo Natural de Navegação',
-    '📋 Informações Destacadas Adequadamente',
-    '✅ Estrutura Visual Otimizada'
+    '🔧 Correção do Menu Perfil - Erro "Erro interno do servidor"',
+    '🎨 Padronização da página Administração de Cache',
+    '🛡️ Validações de dados aprimoradas no backend',
+    '⚡ URLs da API corrigidas e otimizadas',
+    '🎯 Design consistente com padrões do sistema',
+    '✨ Botões e textos padronizados em toda interface',
+    '🔒 Segurança aprimorada com validações adequadas',
+    '📱 Interface responsiva e moderna',
+    '🎨 Paleta de cores unificada (#c9504c)',
+    '✅ Sistema totalmente funcional e estável'
   ]
 };
 

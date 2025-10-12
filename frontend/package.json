@@ -1,6 +1,6 @@
 {
   "name": "unisafe-frontend",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Frontend do sistema UniSafe - Sistema de Gestão de Funcionários e Empresas",
   "type": "module",
   "scripts": {

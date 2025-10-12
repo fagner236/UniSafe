@@ -1,182 +1,419 @@
-import React, { useState } from 'react';
-import { Trash2, RefreshCw, Shield, Database, User, Settings } from 'lucide-react';
-import { useCacheCleaner } from '@/hooks/useCacheCleaner';
+import React, { useState, useEffect } from 'react';
+import { 
+  RefreshCw, 
+  Trash2, 
+  Database, 
+  Users, 
+  UserCheck, 
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Info,
+  Shield
+} from 'lucide-react';
+import config from '@/config/environment';
 
-interface CacheManagementProps {
-  showAdvanced?: boolean;
-  className?: string;
+interface CacheStats {
+  redis: {
+    connected: boolean;
+    totalKeys: number;
+    memoryUsage: string;
+  };
+  keys: {
+    dashboard: number;
+    users: number;
+    empregados: number;
+    total: number;
+  };
+  sampleKeys: Array<{
+    key: string;
+    ttl: number;
+  }>;
+  lastUpdated: string;
+  admin: {
+    name: string;
+    email: string;
+    baseSindical: string;
+  };
 }
 
-const CacheManagement: React.FC<CacheManagementProps> = ({ 
-  showAdvanced = false, 
-  className = '' 
-}) => {
-  const [isClearing, setIsClearing] = useState(false);
-  const [lastCleared, setLastCleared] = useState<Date | null>(null);
-  const { 
-    clearAllCache, 
-    clearUserCache, 
-    clearAuthenticationCache, 
-    clearCacheByCategory 
-  } = useCacheCleaner();
+interface CacheClearResponse {
+  success: boolean;
+  message: string;
+  data: {
+    type: string;
+    clearedKeys: number;
+    clearedAt: string;
+    admin: {
+      name: string;
+      email: string;
+    };
+  };
+}
 
-  const handleClearCache = async (type: 'all' | 'user' | 'auth' | 'system') => {
+const CacheManagement: React.FC = () => {
+  const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  const fetchCacheStatus = async () => {
     try {
-      setIsClearing(true);
-      
-      switch (type) {
-        case 'all':
-          await clearAllCache();
-          break;
-        case 'user':
-          await clearUserCache();
-          break;
-        case 'auth':
-          await clearAuthenticationCache();
-          break;
-        case 'system':
-          await clearCacheByCategory('system');
-          break;
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.apiUrl}/cache-admin/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao obter status do cache');
       }
-      
-      setLastCleared(new Date());
-      
-      // Feedback visual
-      setTimeout(() => {
-        setIsClearing(false);
-      }, 1000);
-      
+
+      const data = await response.json();
+      setCacheStats(data.data);
+      setMessage({ type: 'success', text: 'Status do cache atualizado com sucesso!' });
     } catch (error) {
-      console.error('Erro ao limpar cache:', error);
-      setIsClearing(false);
+      console.error('Erro ao buscar status do cache:', error);
+      setMessage({ type: 'error', text: 'Erro ao obter status do cache' });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getCacheInfo = () => {
-    const localStorageSize = new Blob(
-      Object.keys(localStorage).map(key => localStorage.getItem(key)).filter((value): value is string => value !== null)
-    ).size;
-    
-    const sessionStorageSize = new Blob(
-      Object.keys(sessionStorage).map(key => sessionStorage.getItem(key)).filter((value): value is string => value !== null)
-    ).size;
-    
-    return {
-      localStorage: (localStorageSize / 1024).toFixed(2),
-      sessionStorage: (sessionStorageSize / 1024).toFixed(2),
-      total: ((localStorageSize + sessionStorageSize) / 1024).toFixed(2)
-    };
+  const clearCache = async (type: string, baseSindical?: string) => {
+    try {
+      setClearing(type);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.apiUrl}/cache-admin/clear`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ type, baseSindical })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao limpar cache');
+      }
+
+      const data: CacheClearResponse = await response.json();
+      setMessage({ type: 'success', text: data.message });
+      
+      // Atualizar status após limpeza
+      setTimeout(() => {
+        fetchCacheStatus();
+      }, 1000);
+    } catch (error) {
+      console.error('Erro ao limpar cache:', error);
+      setMessage({ type: 'error', text: 'Erro ao limpar cache' });
+    } finally {
+      setClearing(null);
+    }
   };
 
-  const cacheInfo = getCacheInfo();
+  const formatTTL = (ttl: number): string => {
+    if (ttl === -1) return 'Sem expiração';
+    if (ttl === -2) return 'Chave não existe';
+    
+    const days = Math.floor(ttl / 86400);
+    const hours = Math.floor((ttl % 86400) / 3600);
+    const minutes = Math.floor((ttl % 3600) / 60);
+    const seconds = ttl % 60;
+
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleString('pt-BR');
+  };
+
+  useEffect(() => {
+    fetchCacheStatus();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '256px' }}>
+        <RefreshCw style={{ height: '32px', width: '32px', animation: 'spin 1s linear infinite', color: '#2563eb' }} />
+        <span style={{ marginLeft: '8px', fontSize: '18px' }}>Carregando status do cache...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className={`bg-white rounded-lg border shadow-sm ${className}`}>
-      <div className="p-4 border-b">
-        <div className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-gray-600" />
-          <h3 className="text-lg font-medium text-gray-900">Gerenciamento de Cache</h3>
-        </div>
-        <p className="text-sm text-gray-600 mt-1">
-          Gerencie o cache e memória do sistema
-        </p>
-      </div>
-
-      <div className="p-4">
-        {/* Informações do Cache */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <Database className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-            <div className="text-sm font-medium text-blue-900">
-              {cacheInfo.localStorage} KB
+    <div className="min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center mb-4">
+            <div className="p-3 rounded-lg mr-4" style={{ backgroundColor: '#ffc9c0' }}>
+              <Database className="h-8 w-8" style={{ color: '#1d335b' }} />
             </div>
-            <div className="text-xs text-blue-600">Local Storage</div>
+            <div>
+              <h1 className="text-3xl font-bold" style={{ color: '#1d335b' }}>
+                Administração de Cache
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Gerencie o cache Redis do sistema UniSafe de forma centralizada e segura. Acesso restrito a administradores.
+              </p>
+            </div>
           </div>
           
-          <div className="text-center p-3 bg-green-50 rounded-lg">
-            <User className="h-6 w-6 text-green-600 mx-auto mb-2" />
-            <div className="text-sm font-medium text-green-900">
-              {cacheInfo.sessionStorage} KB
+          {/* Aviso de Segurança */}
+          <div className="p-4 rounded-lg" style={{ backgroundColor: '#fff5f5', borderColor: '#ffc9c0', borderWidth: '1px', borderStyle: 'solid' }}>
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <Shield className="h-5 w-5" style={{ color: '#1d335b' }} />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium" style={{ color: '#8b5a5a' }}>
+                  <strong>Segurança:</strong> Todas as ações são registradas para auditoria. 
+                  Esta página é restrita a administradores e permite gerenciar o cache Redis do sistema.
+                </p>
+              </div>
             </div>
-            <div className="text-xs text-green-600">Session Storage</div>
-          </div>
-          
-          <div className="text-center p-3 bg-purple-50 rounded-lg">
-            <Shield className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-            <div className="text-sm font-medium text-purple-900">
-              {cacheInfo.total} KB
-            </div>
-            <div className="text-xs text-purple-600">Total</div>
           </div>
         </div>
 
-        {/* Botões de Limpeza */}
-        <div className="space-y-3">
-          <button
-            onClick={() => handleClearCache('user')}
-            disabled={isClearing}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        {/* Botão de Atualização */}
+        <div className="mb-6">
+          <button 
+            onClick={fetchCacheStatus} 
+            disabled={loading}
+            className="px-4 py-2 text-white rounded-md transition-colors h-10"
+            style={{ backgroundColor: '#1d335b' }}
+            onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#2a4a7a')}
+            onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#1d335b')}
           >
-            <Trash2 className="h-4 w-4" />
-            {isClearing ? 'Limpando...' : 'Limpar Dados do Usuário'}
+            <RefreshCw className="h-4 w-4 inline mr-2" style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            Atualizar Status
           </button>
-
-          <button
-            onClick={() => handleClearCache('auth')}
-            disabled={isClearing}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Shield className="h-4 w-4" />
-            {isClearing ? 'Limpando...' : 'Limpar Cache de Autenticação'}
-          </button>
-
-          {showAdvanced && (
-            <>
-              <button
-                onClick={() => handleClearCache('system')}
-                disabled={isClearing}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Database className="h-4 w-4" />
-                {isClearing ? 'Limpando...' : 'Limpar Cache do Sistema'}
-              </button>
-
-              <button
-                onClick={() => handleClearCache('all')}
-                disabled={isClearing}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <RefreshCw className="h-4 w-4" />
-                {isClearing ? 'Limpando...' : 'Limpeza Completa'}
-              </button>
-            </>
-          )}
         </div>
 
-        {/* Status da Última Limpeza */}
-        {lastCleared && (
-          <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-            <div className="flex items-center gap-2 text-green-800">
-              <RefreshCw className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Cache limpo em {lastCleared.toLocaleTimeString('pt-BR')}
-              </span>
+        {/* Message Alert */}
+        {message && (
+          <div className={`p-4 rounded-lg border mb-6 ${
+            message.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : message.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+            <div className="flex items-center">
+              {message.type === 'success' ? (
+                <CheckCircle className="h-5 w-5 mr-2" />
+              ) : message.type === 'error' ? (
+                <AlertCircle className="h-5 w-5 mr-2" />
+              ) : (
+                <Info className="h-5 w-5 mr-2" />
+              )}
+              {message.text}
             </div>
           </div>
         )}
 
-        {/* Informações Adicionais */}
-        <div className="mt-4 text-xs text-gray-500 space-y-1">
-          <p>• <strong>Dados do Usuário:</strong> Dashboard, funcionários, uploads</p>
-          <p>• <strong>Autenticação:</strong> Tokens, perfil, permissões</p>
-          {showAdvanced && (
-            <>
-              <p>• <strong>Sistema:</strong> Cache do navegador, memória</p>
-              <p>• <strong>Completa:</strong> Tudo + cookies, timeouts</p>
-            </>
-          )}
+        {/* Cache Status Overview */}
+        {cacheStats && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+            {/* Redis Status */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 lg:p-6">
+              <div className="flex items-center">
+                <div className="p-2 rounded-lg mr-3" style={{ backgroundColor: '#ffc9c0' }}>
+                  <Database className="h-5 w-5" style={{ color: '#1d335b' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Status Redis
+                  </p>
+                  <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>
+                    {cacheStats.redis.connected ? 'Conectado' : 'Desconectado'}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Total de chaves: {cacheStats.redis.totalKeys}
+              </p>
+            </div>
+
+            {/* Total Keys */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 lg:p-6">
+              <div className="flex items-center">
+                <div className="p-2 rounded-lg mr-3" style={{ backgroundColor: '#ffc9c0' }}>
+                  <Users className="h-5 w-5" style={{ color: '#1d335b' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Total de Chaves
+                  </p>
+                  <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>
+                    {cacheStats.keys.total.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard Keys */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 lg:p-6">
+              <div className="flex items-center">
+                <div className="p-2 rounded-lg mr-3" style={{ backgroundColor: '#ffc9c0' }}>
+                  <UserCheck className="h-5 w-5" style={{ color: '#1d335b' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Cache Dashboard
+                  </p>
+                  <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>
+                    {cacheStats.keys.dashboard.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Users Keys */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 lg:p-6">
+              <div className="flex items-center">
+                <div className="p-2 rounded-lg mr-3" style={{ backgroundColor: '#ffc9c0' }}>
+                  <Clock className="h-5 w-5" style={{ color: '#1d335b' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Cache Usuários
+                  </p>
+                  <p className="text-2xl font-semibold" style={{ color: '#1d335b' }}>
+                    {cacheStats.keys.users.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cache Management Actions */}
+        <div className="bg-white shadow rounded-lg border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <Trash2 className="h-5 w-5 mr-2" />
+              Limpeza Manual de Cache
+            </h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* Clear Dashboard Cache */}
+              <button
+                onClick={() => clearCache('dashboard')}
+                disabled={clearing === 'dashboard'}
+                className="flex flex-col items-center gap-2 p-4 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.borderColor = '#c9504c')}
+                onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.borderColor = '#d1d5db')}
+              >
+                <Database className="h-6 w-6" />
+                <span className="text-sm font-medium">Limpar Dashboard</span>
+                {clearing === 'dashboard' && <RefreshCw className="h-4 w-4 animate-spin" />}
+              </button>
+
+              {/* Clear Users Cache */}
+              <button
+                onClick={() => clearCache('users')}
+                disabled={clearing === 'users'}
+                className="flex flex-col items-center gap-2 p-4 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.borderColor = '#c9504c')}
+                onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.borderColor = '#d1d5db')}
+              >
+                <Users className="h-6 w-6" />
+                <span className="text-sm font-medium">Limpar Usuários</span>
+                {clearing === 'users' && <RefreshCw className="h-4 w-4 animate-spin" />}
+              </button>
+
+              {/* Clear Empregados Cache */}
+              <button
+                onClick={() => clearCache('empregados')}
+                disabled={clearing === 'empregados'}
+                className="flex flex-col items-center gap-2 p-4 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.borderColor = '#c9504c')}
+                onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.borderColor = '#d1d5db')}
+              >
+                <UserCheck className="h-6 w-6" />
+                <span className="text-sm font-medium">Limpar Empregados</span>
+                {clearing === 'empregados' && <RefreshCw className="h-4 w-4 animate-spin" />}
+              </button>
+
+              {/* Clear All Cache */}
+              <button
+                onClick={() => clearCache('all')}
+                disabled={clearing === 'all'}
+                className="flex flex-col items-center gap-2 p-4 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                style={{ backgroundColor: '#c9504c' }}
+                onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#d65a56')}
+                onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = '#c9504c')}
+              >
+                <Trash2 className="h-6 w-6" />
+                <span className="text-sm font-medium">Limpar Tudo</span>
+                {clearing === 'all' && <RefreshCw className="h-4 w-4 animate-spin" />}
+              </button>
+        </div>
+
+            {/* Aviso de Atenção */}
+            <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-600" />
+              <span className="text-sm text-blue-800">
+                <strong>Atenção:</strong> A limpeza manual do cache fará com que os próximos acessos sejam mais lentos 
+                até que o cache seja reconstruído. Use com moderação.
+              </span>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Sample Keys Information */}
+      {cacheStats && cacheStats.sampleKeys.length > 0 && (
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          padding: '24px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+            <Clock style={{ height: '20px', width: '20px' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: '600', margin: 0 }}>Chaves de Cache (Amostra)</h3>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {cacheStats.sampleKeys.slice(0, 10).map((keyInfo, index) => (
+              <div key={index} style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px',
+                backgroundColor: '#f9fafb',
+                borderRadius: '4px'
+              }}>
+                <code style={{ fontSize: '14px', fontFamily: 'monospace' }}>{keyInfo.key}</code>
+                <span style={{
+                  padding: '4px 8px',
+                  backgroundColor: '#e5e7eb',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                }}>
+                  TTL: {formatTTL(keyInfo.ttl)}
+                </span>
+              </div>
+            ))}
+          </div>
+          
+          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '16px', margin: '16px 0 0 0' }}>
+            Última atualização: {formatDate(cacheStats.lastUpdated)}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

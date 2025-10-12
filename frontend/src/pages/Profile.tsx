@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, Shield, Save, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import config from '@/config/environment';
 
 
 const Profile = () => {
@@ -70,7 +71,7 @@ const Profile = () => {
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch('${config.apiUrl}/auth/profile', {
+      const response = await fetch(`${config.apiUrl}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

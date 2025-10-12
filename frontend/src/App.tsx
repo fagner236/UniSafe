@@ -12,6 +12,7 @@ import SystemLogs from '@/pages/SystemLogs';
 import UserManagement from '@/pages/UserManagement';
 import Profile from '@/pages/Profile';
 import Settings from '@/pages/Settings';
+import CacheAdmin from '@/pages/CacheAdmin';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
             <Route path="admin" element={<Admin />} />
             <Route path="admin/logs" element={<SystemLogs />} />
             <Route path="admin/users" element={<UserManagement />} />
+            <Route path="admin/cache" element={<CacheAdmin />} />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
           </Route>

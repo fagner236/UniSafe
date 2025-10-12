@@ -15,6 +15,7 @@ import userRoutes from './routes/users';
 import adminRoutes from './routes/admin';
 import logsRoutes from './routes/logs';
 import empregadosRoutes from './routes/empregados';
+import cacheAdminRoutes from './routes/cache-admin';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -100,6 +101,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/logs', logsRoutes);
 app.use('/api/empregados', empregadosRoutes);
+app.use('/api/cache-admin', cacheAdminRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
