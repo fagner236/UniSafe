@@ -13,7 +13,14 @@ env_variables:
   TZ: "America/Sao_Paulo"
   ENVIRONMENT: "False"
   
-  # Cache Configuration (Memory Cache)
+  # Redis Cloud Configuration
+  REDIS_HOST: "redis-16285.c228.us-central1-1.gce.redns.redis-cloud.com"
+  REDIS_PORT: "16285"
+  REDIS_USERNAME: "default"
+  REDIS_PASSWORD: "aM9sEh4J97B2yQy8eTemqLT2i5UtT63x"
+  REDIS_DB: "0"
+  
+  # Cache Configuration
   CACHE_ENABLED: "true"
   CACHE_TTL_DEFAULT: "3600"
 

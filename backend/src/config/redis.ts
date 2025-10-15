@@ -93,12 +93,14 @@ let redisConnected = false;
 if (process.env.REDIS_HOST && process.env.REDIS_HOST !== 'localhost') {
   try {
     redisClient = createClient({
+      username: process.env.REDIS_USERNAME,
+      password: process.env.REDIS_PASSWORD,
       socket: {
         host: process.env.REDIS_HOST,
         port: parseInt(process.env.REDIS_PORT || '6379'),
-        connectTimeout: 5000,
+        connectTimeout: 10000,
       },
-      password: process.env.REDIS_PASSWORD,
+      database: parseInt(process.env.REDIS_DB || '0'),
     });
 
     // Event listeners
@@ -117,11 +119,19 @@ if (process.env.REDIS_HOST && process.env.REDIS_HOST !== 'localhost') {
       redisConnected = true;
     });
 
-    // Conectar ao Redis
-    redisClient.connect().catch((err: any) => {
-      console.log('⚠️ Falha ao conectar Redis, usando cache em memória:', err.message);
-      redisConnected = false;
-    });
+    // Conectar ao Redis com retry
+    const connectRedis = async () => {
+      try {
+        await redisClient.connect();
+        console.log('🚀 Redis Cloud conectado com sucesso!');
+        redisConnected = true;
+      } catch (err: any) {
+        console.log('⚠️ Falha ao conectar Redis Cloud, usando cache em memória:', err.message);
+        redisConnected = false;
+      }
+    };
+    
+    connectRedis();
   } catch (error) {
     console.log('⚠️ Erro ao inicializar Redis, usando cache em memória');
     redisConnected = false;
