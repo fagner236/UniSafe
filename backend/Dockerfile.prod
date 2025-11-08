@@ -1,0 +1,23 @@
+# Dockerfile para produção com código já compilado
+FROM node:24-alpine
+
+# Definir diretório de trabalho
+WORKDIR /app
+
+# Copiar package.json e package-lock.json
+COPY package*.json ./
+
+# Instalar dependências de produção
+RUN npm ci --only=production
+
+# Copiar código compilado
+COPY dist/ ./dist/
+
+# Copiar arquivos necessários
+COPY prisma/ ./prisma/
+
+# Expor porta
+EXPOSE 8080
+
+# Comando para iniciar a aplicação
+CMD ["node", "dist/index.js"]

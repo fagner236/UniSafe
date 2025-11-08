@@ -1,7 +1,7 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.9.2';
+export const APP_VERSION = '1.9.3';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema de Gestão de Funcionários e Empresas';
 export const APP_AUTHOR = 'Evia';
@@ -20,19 +20,19 @@ export const VERSION_FEATURES = [
 
 export const VERSION_HISTORY = [
   {
-    version: '1.9.2',
-    date: 'Janeiro 2025',
+    version: '1.9.3',
+    date: 'Novembro 2025',
     features: [
-      '🔧 Correção do Menu Perfil - Erro "Erro interno do servidor"',
-      '🎨 Padronização da página Administração de Cache',
-      '🛡️ Validações de dados aprimoradas no backend',
-      '⚡ URLs da API corrigidas e otimizadas',
-      '🎯 Design consistente com padrões do sistema',
-      '✨ Botões e textos padronizados em toda interface',
-      '🔒 Segurança aprimorada com validações adequadas',
-      '📱 Interface responsiva e moderna',
-      '🎨 Paleta de cores unificada (#c9504c)',
-      '✅ Sistema totalmente funcional e estável'
+      '🚀 Atualização completa do stack tecnológico',
+      '⚡ Node.js atualizado para 24.11.0 LTS',
+      '⚛️ React atualizado para 19.2.0',
+      '📦 TypeScript atualizado para 5.9.3',
+      '🔧 Prisma atualizado para 6.19.0',
+      '💾 Redis Client atualizado para 5.9.0',
+      '🎨 Vite atualizado para 5.4.21',
+      '🛡️ Todas as dependências atualizadas',
+      '✅ Sistema 100% atualizado e funcionando',
+      '📊 Performance e segurança melhoradas'
     ]
   },
   {
@@ -288,18 +288,18 @@ export const VERSION_INFO = {
   description: APP_DESCRIPTION,
   author: APP_AUTHOR,
   website: APP_WEBSITE,
-  releaseDate: '2025-01-15',
+  releaseDate: '2025-11-08',
   changes: [
-    '🔧 Correção do Menu Perfil - Erro "Erro interno do servidor"',
-    '🎨 Padronização da página Administração de Cache',
-    '🛡️ Validações de dados aprimoradas no backend',
-    '⚡ URLs da API corrigidas e otimizadas',
-    '🎯 Design consistente com padrões do sistema',
-    '✨ Botões e textos padronizados em toda interface',
-    '🔒 Segurança aprimorada com validações adequadas',
-    '📱 Interface responsiva e moderna',
-    '🎨 Paleta de cores unificada (#c9504c)',
-    '✅ Sistema totalmente funcional e estável'
+    '🚀 Atualização completa do stack tecnológico',
+    '⚡ Node.js atualizado para 24.11.0 LTS',
+    '⚛️ React atualizado para 19.2.0',
+    '📦 TypeScript atualizado para 5.9.3',
+    '🔧 Prisma atualizado para 6.19.0',
+    '💾 Redis Client atualizado para 5.9.0',
+    '🎨 Vite atualizado para 5.4.21',
+    '🛡️ Todas as dependências atualizadas',
+    '✅ Sistema 100% atualizado e funcionando',
+    '📊 Performance e segurança melhoradas'
   ]
 };
 

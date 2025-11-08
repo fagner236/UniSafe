@@ -1,6 +1,6 @@
 {
   "name": "unisafe-frontend",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "description": "Frontend do sistema UniSafe - Sistema de Gestão de Funcionários e Empresas",
   "type": "module",
   "scripts": {
@@ -11,32 +11,32 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "axios": "^1.7.9",
-    "jspdf": "^3.0.2",
+    "axios": "^1.13.2",
+    "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.541.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "react-dropzone": "^14.3.8",
     "react-router-dom": "^6.28.0",
-    "recharts": "^3.1.2",
+    "recharts": "^3.3.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^24.5.1",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@typescript-eslint/eslint-plugin": "^8.15.0",
-    "@typescript-eslint/parser": "^8.15.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^9.17.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.46.3",
+    "@typescript-eslint/parser": "^8.46.3",
+    "@vitejs/plugin-react": "^5.1.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^5.0.0",
-    "eslint-plugin-react-refresh": "^0.4.14",
-    "postcss": "^8.4.49",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.9.2",
-    "vite": "^5.4.19"
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
   },
   "keywords": [
     "unisafe",

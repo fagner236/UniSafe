@@ -20,6 +20,7 @@ import cacheAdminRoutes from './routes/cache-admin';
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { securityConfig } from './config/security';
+import { redisInitialization } from './config/redis';
 
 import compression from "compression"; 
 
@@ -48,6 +49,7 @@ app.use(helmet({
 // CORS configurado de forma funcional
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174', // Porta alternativa do Vite
   'http://localhost:3000', 
   'http://localhost:4173',
   'https://unisafe.evia.com.br',
@@ -114,12 +116,28 @@ app.use('*', (req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`📊 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 URL: http://localhost:${PORT}`);
-  console.log(`🔧 Sistema funcionando com configuração estável`);
-});
+// Iniciar servidor (Redis conecta em background)
+function startServer() {
+  // Iniciar servidor imediatamente
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`📊 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 URL: http://localhost:${PORT}`);
+    
+    // Verificar status do Redis em background
+    if (redisInitialization) {
+      redisInitialization.then(() => {
+        console.log(`✅ Redis conectado e funcionando!`);
+      }).catch(() => {
+        console.log(`⚠️ Redis ainda não conectado, mas servidor está funcionando.`);
+        console.log(`⚠️ O sistema continuará tentando conectar ao Redis em background.`);
+      });
+    } else {
+      console.log(`⚠️ Redis não configurado. Sistema funcionando sem cache Redis.`);
+    }
+  });
+}
+
+startServer();
 
 export default app;

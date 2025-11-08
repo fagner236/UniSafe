@@ -85,194 +85,384 @@ class MemoryCache {
 // Instância do cache em memória
 const memoryCache = new MemoryCache();
 
-// Configuração do cliente Redis (opcional)
+// Configuração do cliente Redis (obrigatório)
 let redisClient: any = null;
 let redisConnected = false;
 
-// Tentar conectar ao Redis se as variáveis estiverem configuradas
-if (process.env.REDIS_HOST && process.env.REDIS_HOST !== 'localhost') {
-  try {
-    redisClient = createClient({
-      username: process.env.REDIS_USERNAME,
-      password: process.env.REDIS_PASSWORD,
-      socket: {
-        host: process.env.REDIS_HOST,
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-        connectTimeout: 10000,
-      },
-      database: parseInt(process.env.REDIS_DB || '0'),
-    });
+// Função para inicializar e conectar ao Redis
+async function initializeRedis(): Promise<void> {
+  const maxRetries = 5;
+  const retryDelay = 2000; // 2 segundos
+  
+  if (!process.env.REDIS_HOST || process.env.REDIS_HOST === 'localhost') {
+    throw new Error('REDIS_HOST não configurado. Redis é obrigatório para o funcionamento do sistema.');
+  }
 
-    // Event listeners
-    redisClient.on('connect', () => {
-      console.log('✅ Redis conectado com sucesso');
-      redisConnected = true;
-    });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 Tentativa ${attempt}/${maxRetries} de conectar ao Redis...`);
+      
+      redisClient = createClient({
+        username: process.env.REDIS_USERNAME,
+        password: process.env.REDIS_PASSWORD,
+        socket: {
+          host: process.env.REDIS_HOST,
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          connectTimeout: 15000,
+          reconnectStrategy: (retries) => {
+            if (retries > 10) {
+              console.log('⚠️ Redis: Muitas tentativas de reconexão, tentando reconectar...');
+              return false;
+            }
+            return Math.min(retries * 200, 5000);
+          }
+        },
+        database: parseInt(process.env.REDIS_DB || '0'),
+      });
 
-    redisClient.on('error', (err: any) => {
-      console.log('⚠️ Redis error:', err.message);
-      redisConnected = false;
-    });
-
-    redisClient.on('ready', () => {
-      console.log('🚀 Redis pronto para uso');
-      redisConnected = true;
-    });
-
-    // Conectar ao Redis com retry
-    const connectRedis = async () => {
-      try {
-        await redisClient.connect();
-        console.log('🚀 Redis Cloud conectado com sucesso!');
+      // Event listeners
+      redisClient.on('connect', () => {
+        console.log('✅ Redis conectado com sucesso');
         redisConnected = true;
-      } catch (err: any) {
-        console.log('⚠️ Falha ao conectar Redis Cloud, usando cache em memória:', err.message);
+      });
+
+      redisClient.on('error', (err: any) => {
+        console.log('⚠️ Redis error:', err.message);
         redisConnected = false;
+      });
+
+      redisClient.on('ready', () => {
+        console.log('🚀 Redis pronto para uso');
+        redisConnected = true;
+      });
+
+      redisClient.on('reconnecting', () => {
+        console.log('🔄 Redis reconectando...');
+      });
+
+      redisClient.on('end', () => {
+        console.log('⚠️ Redis desconectado');
+        redisConnected = false;
+      });
+
+      // Conectar ao Redis
+      await redisClient.connect();
+      
+      // Verificar conexão com um ping
+      const pong = await redisClient.ping();
+      if (pong === 'PONG') {
+        console.log('✅ Redis conectado e respondendo corretamente!');
+        redisConnected = true;
+        return; // Sucesso, sair da função
       }
-    };
-    
-    connectRedis();
-  } catch (error) {
-    console.log('⚠️ Erro ao inicializar Redis, usando cache em memória');
-    redisConnected = false;
+    } catch (error: any) {
+      console.log(`❌ Tentativa ${attempt}/${maxRetries} falhou:`, error.message);
+      redisConnected = false;
+      redisClient = null;
+      
+      if (attempt < maxRetries) {
+        console.log(`⏳ Aguardando ${retryDelay}ms antes da próxima tentativa...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      } else {
+        throw new Error(`Falha ao conectar ao Redis após ${maxRetries} tentativas: ${error.message}`);
+      }
+    }
   }
 }
 
-// Funções utilitárias para cache com fallback automático
+// Inicializar Redis em background (não bloqueia o servidor)
+let redisInitialization: Promise<void> | null = null;
+
+if (process.env.REDIS_HOST && process.env.REDIS_HOST !== 'localhost') {
+  // Iniciar conexão em background sem bloquear
+  redisInitialization = initializeRedis().catch((error) => {
+    console.error('❌ ERRO: Não foi possível conectar ao Redis:', error.message);
+    console.error('⚠️ O sistema continuará tentando reconectar em background...');
+    redisConnected = false;
+    // Não encerrar o processo, apenas logar o erro
+  });
+} else {
+  console.warn('⚠️ AVISO: REDIS_HOST não configurado. Redis é recomendado para melhor performance.');
+  console.warn('⚠️ O sistema funcionará, mas sem cache Redis.');
+}
+
+// Funções utilitárias para cache usando Redis (obrigatório)
 export const cacheService = {
   // Salvar no cache com TTL
   async set(key: string, value: any, ttlSeconds: number = 3600): Promise<void> {
-    try {
-      if (redisConnected && redisClient) {
-        await redisClient.setEx(key, ttlSeconds, JSON.stringify(value));
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória temporariamente
+        console.warn('⚠️ Redis não disponível, usando cache em memória temporariamente');
         await memoryCache.set(key, value, ttlSeconds);
+        return;
       }
-    } catch (error) {
-      console.log('⚠️ Erro ao salvar no cache, usando memória:', error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      await memoryCache.set(key, value, ttlSeconds);
+      return;
+    }
+    
+    try {
+      await redisClient.setEx(key, ttlSeconds, JSON.stringify(value));
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar no Redis, usando memória:', error.message);
+      // Fallback para memória em caso de erro
       await memoryCache.set(key, value, ttlSeconds);
     }
   },
 
   // Buscar do cache
   async get(key: string): Promise<any | null> {
-    try {
-      if (redisConnected && redisClient) {
-        const value = await redisClient.get(key);
-        return value ? JSON.parse(value) : null;
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória
         return await memoryCache.get(key);
       }
-    } catch (error) {
-      console.log('⚠️ Erro ao buscar do cache, usando memória:', error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      return await memoryCache.get(key);
+    }
+    
+    try {
+      const value = await redisClient.get(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar do Redis, usando memória:', error.message);
+      // Fallback para memória em caso de erro
       return await memoryCache.get(key);
     }
   },
 
   // Deletar do cache
   async del(key: string): Promise<void> {
-    try {
-      if (redisConnected && redisClient) {
-        await redisClient.del(key);
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória
         await memoryCache.del(key);
+        return;
       }
-    } catch (error) {
-      console.log('⚠️ Erro ao deletar do cache, usando memória:', error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      await memoryCache.del(key);
+      return;
+    }
+    
+    try {
+      await redisClient.del(key);
+    } catch (error: any) {
+      console.error('❌ Erro ao deletar do Redis, usando memória:', error.message);
+      // Fallback para memória em caso de erro
       await memoryCache.del(key);
     }
   },
 
   // Deletar múltiplas chaves com padrão
   async delPattern(pattern: string): Promise<void> {
-    try {
-      if (redisConnected && redisClient) {
-        const keys = await redisClient.keys(pattern);
-        if (keys.length > 0) {
-          await redisClient.del(keys);
-          console.log(`🗑️ Deletadas ${keys.length} chaves com padrão: ${pattern}`);
-        }
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória
         await memoryCache.delPattern(pattern);
-        console.log(`🗑️ Deletadas chaves com padrão: ${pattern} (memória)`);
+        return;
       }
-    } catch (error) {
-      console.log('⚠️ Erro ao deletar padrão do cache, usando memória:', error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      await memoryCache.delPattern(pattern);
+      return;
+    }
+    
+    try {
+      const keys = await redisClient.keys(pattern);
+      if (keys.length > 0) {
+        await redisClient.del(keys);
+        console.log(`🗑️ Deletadas ${keys.length} chaves com padrão: ${pattern}`);
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao deletar padrão do Redis, usando memória:', error.message);
+      // Fallback para memória em caso de erro
       await memoryCache.delPattern(pattern);
     }
   },
 
   // Verificar se existe
   async exists(key: string): Promise<boolean> {
-    try {
-      if (redisConnected && redisClient) {
-        const result = await redisClient.exists(key);
-        return result === 1;
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória
         return await memoryCache.exists(key);
       }
-    } catch (error) {
-      console.log('⚠️ Erro ao verificar existência no cache, usando memória:', error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      return await memoryCache.exists(key);
+    }
+    
+    try {
+      const result = await redisClient.exists(key);
+      return result === 1;
+    } catch (error: any) {
+      console.error('❌ Erro ao verificar existência no Redis, usando memória:', error.message);
+      // Fallback para memória em caso de erro
       return await memoryCache.exists(key);
     }
   },
 
   // Obter TTL de uma chave
   async getTTL(key: string): Promise<number> {
-    try {
-      if (redisConnected && redisClient) {
-        return await redisClient.ttl(key);
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória
         return await memoryCache.getTTL(key);
       }
-    } catch (error) {
-      console.log(`⚠️ Erro ao obter TTL da chave ${key}, usando memória:`, error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      return await memoryCache.getTTL(key);
+    }
+    
+    try {
+      return await redisClient.ttl(key);
+    } catch (error: any) {
+      console.error(`❌ Erro ao obter TTL da chave ${key} no Redis, usando memória:`, error.message);
+      // Fallback para memória em caso de erro
       return await memoryCache.getTTL(key);
     }
   },
 
   // Obter tamanho de uma chave
   async getSize(key: string): Promise<number> {
-    try {
-      if (redisConnected && redisClient) {
-        return await redisClient.strLen(key);
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória
         return await memoryCache.getSize(key);
       }
-    } catch (error) {
-      console.log(`⚠️ Erro ao obter tamanho da chave ${key}, usando memória:`, error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      return await memoryCache.getSize(key);
+    }
+    
+    try {
+      return await redisClient.strLen(key);
+    } catch (error: any) {
+      console.error(`❌ Erro ao obter tamanho da chave ${key} no Redis, usando memória:`, error.message);
+      // Fallback para memória em caso de erro
       return await memoryCache.getSize(key);
     }
   },
 
   // Obter todas as chaves com padrão
   async getKeys(pattern: string): Promise<string[]> {
-    try {
-      if (redisConnected && redisClient) {
-        return await redisClient.keys(pattern);
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória
         return await memoryCache.getKeys(pattern);
       }
-    } catch (error) {
-      console.log(`⚠️ Erro ao obter chaves com padrão ${pattern}, usando memória:`, error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      return await memoryCache.getKeys(pattern);
+    }
+    
+    try {
+      return await redisClient.keys(pattern);
+    } catch (error: any) {
+      console.error(`❌ Erro ao obter chaves com padrão ${pattern} no Redis, usando memória:`, error.message);
+      // Fallback para memória em caso de erro
       return await memoryCache.getKeys(pattern);
     }
   },
 
   // Deletar múltiplas chaves
   async delMany(keys: string[]): Promise<void> {
-    try {
-      if (redisConnected && redisClient) {
-        if (keys.length > 0) {
-          await redisClient.del(keys);
-          console.log(`🗑️ Deletadas ${keys.length} chaves`);
-        }
-      } else {
+    // Aguardar inicialização do Redis se ainda não estiver pronto (com timeout)
+    if (!redisConnected && redisInitialization) {
+      try {
+        await Promise.race([
+          redisInitialization,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+      } catch (error) {
+        // Se timeout ou erro, usar cache em memória
         await memoryCache.delMany(keys);
-        console.log(`🗑️ Deletadas ${keys.length} chaves (memória)`);
+        return;
       }
-    } catch (error) {
-      console.log('⚠️ Erro ao deletar múltiplas chaves, usando memória:', error);
+    }
+    
+    if (!redisConnected || !redisClient) {
+      // Usar cache em memória como fallback
+      await memoryCache.delMany(keys);
+      return;
+    }
+    
+    try {
+      if (keys.length > 0) {
+        await redisClient.del(keys);
+        console.log(`🗑️ Deletadas ${keys.length} chaves`);
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao deletar múltiplas chaves do Redis, usando memória:', error.message);
+      // Fallback para memória em caso de erro
       await memoryCache.delMany(keys);
     }
   },
@@ -285,5 +475,8 @@ export const cacheService = {
     };
   }
 };
+
+// Exportar a promessa de inicialização para que o servidor aguarde
+export { redisInitialization };
 
 export default redisClient;

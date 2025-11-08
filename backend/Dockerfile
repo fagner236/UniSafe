@@ -1,5 +1,5 @@
 # Dockerfile para UniSafe Backend
-FROM node:18-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Definir diretório de trabalho
 WORKDIR /app
@@ -21,7 +21,7 @@ COPY . .
 RUN npm run build
 
 # Estágio de produção
-FROM node:18-alpine AS production
+FROM node:24-alpine AS production
 
 # Instalar dependências de produção
 RUN apk add --no-cache dumb-init
