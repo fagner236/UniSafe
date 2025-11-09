@@ -5,7 +5,7 @@ import config from '@/config/environment';
 
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
@@ -40,6 +40,9 @@ const Profile = () => {
     setIsLoading(true);
     setMessage(null);
 
+    // Backup dos dados originais para rollback em caso de erro
+    const originalUser = user ? { ...user } : null;
+
     try {
       // Validações
       if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
@@ -70,6 +73,15 @@ const Profile = () => {
         return;
       }
 
+      // 🚀 OPTIMISTIC UPDATE: Atualizar UI imediatamente antes da requisição
+      if (user && !formData.newPassword) {
+        // Só fazer optimistic update se não estiver alterando senha
+        const optimisticUserData: any = {};
+        if (updateData.nome) optimisticUserData.nome = updateData.nome;
+        if (updateData.email) optimisticUserData.email = updateData.email;
+        updateUser(optimisticUserData);
+      }
+
       const token = localStorage.getItem('token');
       const response = await fetch(`${config.apiUrl}/auth/profile`, {
         method: 'PUT',
@@ -93,12 +105,12 @@ const Profile = () => {
           confirmPassword: ''
         }));
 
-        // Atualizar dados do usuário no contexto
-        if (user) {
-          // Atualizar o contexto com os novos dados
-          // Aqui você pode implementar uma função para atualizar o contexto
-          // Por enquanto, vamos manter o modo de edição ativo para permitir mais alterações
-          // setIsEditing(false); // Comentado para permitir edição contínua
+        // Atualizar dados do usuário no contexto com dados confirmados do servidor
+        if (result.data && result.data.user) {
+          updateUser(result.data.user);
+        } else if (user) {
+          // Se o servidor não retornou dados completos, usar os dados otimistas já aplicados
+          // (já foram aplicados acima no optimistic update)
         }
         
         // Redirecionar para login se a senha foi alterada
@@ -108,9 +120,17 @@ const Profile = () => {
           }, 2000);
         }
       } else {
+        // 🔄 ROLLBACK: Reverter para dados originais em caso de erro
+        if (originalUser) {
+          updateUser(originalUser);
+        }
         setMessage({ type: 'error', text: result.message || 'Erro ao atualizar perfil' });
       }
     } catch (error) {
+      // 🔄 ROLLBACK: Reverter para dados originais em caso de erro
+      if (originalUser) {
+        updateUser(originalUser);
+      }
       console.error('Erro ao atualizar perfil:', error);
       setMessage({ type: 'error', text: 'Erro interno do servidor' });
     } finally {

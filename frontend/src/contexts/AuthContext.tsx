@@ -9,6 +9,7 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void;
   isLoading: boolean;
 }
 
@@ -120,11 +121,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logger.log('✅ Logout completo - Cache e memória limpos');
   };
 
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      setUser({ ...user, ...userData });
+      logger.log('✅ Dados do usuário atualizados no contexto');
+    }
+  };
+
   const value = {
     user,
     token,
     login,
     logout,
+    updateUser,
     isLoading
   };
 

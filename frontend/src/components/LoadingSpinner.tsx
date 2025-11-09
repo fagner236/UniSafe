@@ -1,0 +1,35 @@
+import React from 'react';
+
+interface LoadingSpinnerProps {
+  message?: string;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
+  message = 'Carregando...', 
+  size = 'md' 
+}) => {
+  const sizeClasses = {
+    sm: 'h-6 w-6',
+    md: 'h-12 w-12',
+    lg: 'h-16 w-16'
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className={`${sizeClasses[size]} mx-auto mb-4`}>
+          <div className="animate-spin rounded-full border-b-2 border-t-2 border-primary-600" 
+               style={{ borderColor: '#1d335b' }}>
+          </div>
+        </div>
+        {message && (
+          <p className="text-gray-600 text-sm mt-2">{message}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default LoadingSpinner;
+

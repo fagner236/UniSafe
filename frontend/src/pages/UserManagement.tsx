@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import api from '@/config/axios';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDebounce } from '@/hooks/useDebounce';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -76,6 +77,7 @@ const UserManagement = () => {
     dateTo: '',
     company: ''
   });
+  const debouncedSearch = useDebounce(filters.search, 500); // Debounce de 500ms
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortColumn, setSortColumn] = useState<string>('');
@@ -198,8 +200,8 @@ const UserManagement = () => {
 
   // Filtrar usuários
   const filteredUsers = users.filter(userItem => {
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
+    if (debouncedSearch) {
+      const searchLower = debouncedSearch.toLowerCase();
       if (!userItem.nome.toLowerCase().includes(searchLower) && 
           !userItem.email.toLowerCase().includes(searchLower) &&
           !(userItem.empresa?.razao_social?.toLowerCase().includes(searchLower) || 
@@ -264,12 +266,23 @@ const UserManagement = () => {
   const handleEditUser = async () => {
     if (!selectedUser) return;
     
+    // Backup da lista original para rollback
+    const originalUsers = [...users];
+    
     try {
       setIsSubmitting(true);
+      
+      // 🚀 OPTIMISTIC UPDATE: Atualizar usuário na lista imediatamente
+      setUsers(users.map(u => 
+        u.id_usuario === selectedUser.id_usuario 
+          ? { ...u, nome: formData.nome, email: formData.email, perfil: formData.perfil as 'admin' | 'user' | 'guest', id_empresa: formData.id_empresa, base_sindical: formData.base_sindical }
+          : u
+      ));
+      
       const response = await api.put(`/users/${selectedUser.id_usuario}`, formData);
       
       if (response.data.success) {
-        // Atualizar lista de usuários
+        // Atualizar lista de usuários com dados confirmados do servidor
         await fetchUsers();
         setShowEditModal(false);
         setSelectedUser(null);
@@ -277,8 +290,14 @@ const UserManagement = () => {
         
         // Mostrar mensagem de sucesso
         alert('Usuário atualizado com sucesso!');
+      } else {
+        // 🔄 ROLLBACK: Reverter para lista original em caso de erro
+        setUsers(originalUsers);
+        alert('Erro ao atualizar usuário');
       }
     } catch (error: any) {
+      // 🔄 ROLLBACK: Reverter para lista original em caso de erro
+      setUsers(originalUsers);
       console.error('Erro ao editar usuário:', error);
       const message = error.response?.data?.message || 'Erro ao editar usuário';
       alert(`Erro: ${message}`);
@@ -291,20 +310,38 @@ const UserManagement = () => {
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     
+    // Backup da lista original para rollback
+    const originalUsers = [...users];
+    const userIdToDelete = selectedUser.id_usuario;
+    
     try {
       setIsSubmitting(true);
-      const response = await api.delete(`/users/${selectedUser.id_usuario}`);
+      
+      // 🚀 OPTIMISTIC UPDATE: Remover usuário da lista imediatamente
+      setUsers(users.filter(u => u.id_usuario !== userIdToDelete));
+      setShowDeleteModal(false);
+      setSelectedUser(null);
+      
+      const response = await api.delete(`/users/${userIdToDelete}`);
       
       if (response.data.success) {
-        // Atualizar lista de usuários
+        // Atualizar lista de usuários com dados confirmados do servidor
         await fetchUsers();
-        setShowDeleteModal(false);
-        setSelectedUser(null);
         
         // Mostrar mensagem de sucesso
         alert('Usuário excluído com sucesso!');
+      } else {
+        // 🔄 ROLLBACK: Reverter para lista original em caso de erro
+        setUsers(originalUsers);
+        setShowDeleteModal(true);
+        setSelectedUser(originalUsers.find(u => u.id_usuario === userIdToDelete) || null);
+        alert('Erro ao excluir usuário');
       }
     } catch (error: any) {
+      // 🔄 ROLLBACK: Reverter para lista original em caso de erro
+      setUsers(originalUsers);
+      setShowDeleteModal(true);
+      setSelectedUser(originalUsers.find(u => u.id_usuario === userIdToDelete) || null);
       console.error('Erro ao excluir usuário:', error);
       const message = error.response?.data?.message || 'Erro ao excluir usuário';
       alert(`Erro: ${message}`);
@@ -331,20 +368,44 @@ const UserManagement = () => {
 
   // Criar novo usuário
   const handleCreateUser = async () => {
+    // Backup da lista original para rollback
+    const originalUsers = [...users];
+    
     try {
       setIsSubmitting(true);
+      
+      // 🚀 OPTIMISTIC UPDATE: Adicionar usuário à lista imediatamente
+      const optimisticUser: User = {
+        id_usuario: `temp_${Date.now()}`, // ID temporário
+        nome: formData.nome,
+        email: formData.email,
+        perfil: formData.perfil as 'admin' | 'user' | 'guest',
+        id_empresa: formData.id_empresa,
+        base_sindical: formData.base_sindical,
+        data_criacao: new Date().toISOString(),
+        data_atualizacao: new Date().toISOString(),
+        empresa: undefined // Será preenchido pela resposta do servidor
+      };
+      setUsers([...users, optimisticUser]);
+      
       const response = await api.post('/users', formData);
       
       if (response.data.success) {
-        // Atualizar lista de usuários
+        // Atualizar lista de usuários com dados confirmados do servidor
         await fetchUsers();
         setShowCreateModal(false);
         setFormData({ nome: '', email: '', perfil: 'user', id_empresa: '', base_sindical: '' });
         
         // Mostrar mensagem de sucesso
         alert('Usuário criado com sucesso! Senha padrão: 123456');
+      } else {
+        // 🔄 ROLLBACK: Reverter para lista original em caso de erro
+        setUsers(originalUsers);
+        alert('Erro ao criar usuário');
       }
     } catch (error: any) {
+      // 🔄 ROLLBACK: Reverter para lista original em caso de erro
+      setUsers(originalUsers);
       console.error('Erro ao criar usuário:', error);
       const message = error.response?.data?.message || 'Erro ao criar usuário';
       alert(`Erro: ${message}`);

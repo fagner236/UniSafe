@@ -17,6 +17,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import api from '../config/axios';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface LogEntry {
   id: string;
@@ -81,6 +82,9 @@ const SystemLogs = () => {
     total: 0
   });
   const [showDetails, setShowDetails] = useState<Set<string>>(new Set());
+  
+  // Debounce do filtro de busca para aplicar automaticamente após 500ms
+  const debouncedSearch = useDebounce(filters.search, 500);
 
   // Buscar logs do sistema
   const fetchLogs = async () => {
@@ -91,7 +95,8 @@ const SystemLogs = () => {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
-        ...filters
+        ...filters,
+        search: debouncedSearch || filters.search // Usar valor debounced ou fallback
       });
 
       console.log('🔍 Parâmetros da busca:', params.toString());
@@ -176,6 +181,16 @@ const SystemLogs = () => {
     setPagination(prev => ({ ...prev, page: 1 }));
     fetchLogs();
   };
+
+  // Aplicar filtros automaticamente quando o debouncedSearch mudar
+  useEffect(() => {
+    // Só aplicar se houver mudança no debouncedSearch e não estiver no carregamento inicial
+    // Evitar aplicar no carregamento inicial (quando debouncedSearch é igual ao valor inicial)
+    if (debouncedSearch !== undefined && debouncedSearch !== filters.search) {
+      applyFilters();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   // Limpar filtros
   const clearFilters = () => {

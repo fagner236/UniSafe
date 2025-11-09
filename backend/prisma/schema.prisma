@@ -143,19 +143,22 @@ model BaseDados {
   @@index([municipio])
   @@index([base_sindical])
   @@index([filiado])
+  // Índices compostos para otimizar queries frequentes
+  @@index([base_sindical, mes], name: "base_sindical_mes_idx")
+  @@index([base_sindical, mes, filiado], name: "base_mes_filiado_idx")
   @@map("base_dados")
 }
 
 model Empregado {
-  id_empregados   Int       @id @default(autoincrement()) @map("id_empregados")
-  matricula       String    @unique @map("matricula") @db.VarChar(8)
-  email           String?   @unique @map("e-mail") @db.VarChar(200)
-  celular         String?   @unique @map("celular") @db.VarChar(20)
-  foto            String?   @map("foto") @db.VarChar(255)
-  id_usuario      String    @map("id_usuario") @db.VarChar(191)
-  data_criacao    DateTime? @map("data_criacao") @db.DateTime(3)
+  id_empregados    Int       @id @default(autoincrement()) @map("id_empregados")
+  matricula        String    @unique @map("matricula") @db.VarChar(8)
+  email            String?   @unique @map("e-mail") @db.VarChar(200)
+  celular          String?   @unique @map("celular") @db.VarChar(20)
+  foto             String?   @map("foto") @db.VarChar(255)
+  id_usuario       String    @map("id_usuario") @db.VarChar(191)
+  data_criacao     DateTime? @map("data_criacao") @db.DateTime(3)
   data_atualizacao DateTime? @map("data_atualizacao") @db.DateTime(3)
-  
+
   // usuario         User      @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
 
   @@index([matricula])

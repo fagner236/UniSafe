@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Search, Download, Eye, Edit, Filter, ChevronUp, ChevronDown, X, User, Briefcase, FileText, Building, MapPin, Printer, FileSpreadsheet, Mail, Phone, Camera, Save, CameraIcon, CheckCircle, AlertCircle, ArrowLeft, Database } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { config } from '@/config/environment';
@@ -10,6 +11,7 @@ const Employees = () => {
   const { processedData, hasData } = useData();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 500); // Debounce de 500ms
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortColumn, setSortColumn] = useState<string>('');
@@ -574,9 +576,9 @@ const Employees = () => {
     
     let filteredData = [...processedData.employees];
     
-    // Aplicar filtro de busca
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
+    // Aplicar filtro de busca (usar debouncedSearchTerm para consistência)
+    if (debouncedSearchTerm.trim()) {
+      const searchLower = debouncedSearchTerm.toLowerCase();
       filteredData = filteredData.filter(employee => {
         return Object.values(employee).some(value => 
           String(value).toLowerCase().includes(searchLower)
@@ -1182,9 +1184,9 @@ const Employees = () => {
 
   // Filtra os funcionários baseado no termo de busca
   const filteredEmployees = processedData?.employees.filter(emp => {
-    if (!searchTerm) return true;
+    if (!debouncedSearchTerm) return true;
     
-    const searchLower = searchTerm.toLowerCase();
+    const searchLower = debouncedSearchTerm.toLowerCase();
     
     // Busca em todas as colunas do arquivo
     return processedData!.columns.some(column => {

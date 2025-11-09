@@ -102,12 +102,12 @@ async function initializeRedis(): Promise<void> {
     try {
       console.log(`🔄 Tentativa ${attempt}/${maxRetries} de conectar ao Redis...`);
       
-      redisClient = createClient({
-        username: process.env.REDIS_USERNAME,
-        password: process.env.REDIS_PASSWORD,
-        socket: {
-          host: process.env.REDIS_HOST,
-          port: parseInt(process.env.REDIS_PORT || '6379'),
+    redisClient = createClient({
+      username: process.env.REDIS_USERNAME,
+      password: process.env.REDIS_PASSWORD,
+      socket: {
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT || '6379'),
           connectTimeout: 15000,
           reconnectStrategy: (retries) => {
             if (retries > 10) {
@@ -116,25 +116,25 @@ async function initializeRedis(): Promise<void> {
             }
             return Math.min(retries * 200, 5000);
           }
-        },
-        database: parseInt(process.env.REDIS_DB || '0'),
-      });
+      },
+      database: parseInt(process.env.REDIS_DB || '0'),
+    });
 
-      // Event listeners
-      redisClient.on('connect', () => {
-        console.log('✅ Redis conectado com sucesso');
-        redisConnected = true;
-      });
+    // Event listeners
+    redisClient.on('connect', () => {
+      console.log('✅ Redis conectado com sucesso');
+      redisConnected = true;
+    });
 
-      redisClient.on('error', (err: any) => {
-        console.log('⚠️ Redis error:', err.message);
-        redisConnected = false;
-      });
+    redisClient.on('error', (err: any) => {
+      console.log('⚠️ Redis error:', err.message);
+      redisConnected = false;
+    });
 
-      redisClient.on('ready', () => {
-        console.log('🚀 Redis pronto para uso');
-        redisConnected = true;
-      });
+    redisClient.on('ready', () => {
+      console.log('🚀 Redis pronto para uso');
+      redisConnected = true;
+    });
 
       redisClient.on('reconnecting', () => {
         console.log('🔄 Redis reconectando...');
@@ -146,7 +146,7 @@ async function initializeRedis(): Promise<void> {
       });
 
       // Conectar ao Redis
-      await redisClient.connect();
+        await redisClient.connect();
       
       // Verificar conexão com um ping
       const pong = await redisClient.ping();
@@ -157,7 +157,7 @@ async function initializeRedis(): Promise<void> {
       }
     } catch (error: any) {
       console.log(`❌ Tentativa ${attempt}/${maxRetries} falhou:`, error.message);
-      redisConnected = false;
+        redisConnected = false;
       redisClient = null;
       
       if (attempt < maxRetries) {
@@ -304,11 +304,11 @@ export const cacheService = {
     }
     
     try {
-      const keys = await redisClient.keys(pattern);
-      if (keys.length > 0) {
-        await redisClient.del(keys);
-        console.log(`🗑️ Deletadas ${keys.length} chaves com padrão: ${pattern}`);
-      }
+        const keys = await redisClient.keys(pattern);
+        if (keys.length > 0) {
+          await redisClient.del(keys);
+          console.log(`🗑️ Deletadas ${keys.length} chaves com padrão: ${pattern}`);
+        }
     } catch (error: any) {
       console.error('❌ Erro ao deletar padrão do Redis, usando memória:', error.message);
       // Fallback para memória em caso de erro
@@ -456,10 +456,10 @@ export const cacheService = {
     }
     
     try {
-      if (keys.length > 0) {
-        await redisClient.del(keys);
-        console.log(`🗑️ Deletadas ${keys.length} chaves`);
-      }
+        if (keys.length > 0) {
+          await redisClient.del(keys);
+          console.log(`🗑️ Deletadas ${keys.length} chaves`);
+        }
     } catch (error: any) {
       console.error('❌ Erro ao deletar múltiplas chaves do Redis, usando memória:', error.message);
       // Fallback para memória em caso de erro

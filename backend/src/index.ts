@@ -119,10 +119,10 @@ app.use('*', (req, res) => {
 // Iniciar servidor (Redis conecta em background)
 function startServer() {
   // Iniciar servidor imediatamente
-  app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`📊 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🌐 URL: http://localhost:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`📊 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 URL: http://localhost:${PORT}`);
     
     // Verificar status do Redis em background
     if (redisInitialization) {
