@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate } from '@/utils/dateFormatter';
@@ -255,8 +255,6 @@ const Dashboard = () => {
     return `${monthNames[parseInt(month) - 1]} de ${year}`;
   };
 
-
-
   const formatCurrency = (value: number) => {
     // Verifica se o valor é válido (não é NaN, Infinity ou undefined)
     if (!value || isNaN(value) || !isFinite(value)) {
@@ -268,9 +266,6 @@ const Dashboard = () => {
       currency: 'BRL'
     }).format(value);
   };
-
-
-
 
   // Fechar seletor de mês quando clicar fora
   useEffect(() => {
@@ -2037,6 +2032,33 @@ const Dashboard = () => {
     setSelectedWeekOffset(0);
   };
 
+  // ⚠️ IMPORTANTE: Todos os hooks (useMemo) devem ser chamados ANTES de qualquer return condicional
+  // Mas DEPOIS de todas as funções serem definidas
+  // Memoização de estatísticas básicas - só recalcula quando processedData muda
+  // Usar valores padrão se processedData não existir para evitar erros
+  const genderStats = useMemo(() => processedData ? getGenderStats() : [], [processedData]);
+  const raceStats = useMemo(() => processedData ? getRaceStats() : [], [processedData]);
+  const mensalidadeStats = useMemo(() => processedData ? getMensalidadeStats() : { total: 0, average: 0, count: 0, referenceMonth: '' }, [processedData]);
+  const contribuicaoMinMaxStats = useMemo(() => processedData ? getContribuicaoMinMaxStats() : { min: 0, max: 0, average: 0, count: 0 }, [processedData]);
+  
+  // Memoização de estatísticas usadas no JSX
+  const stateStats = useMemo(() => processedData ? getStateStats() : [], [processedData]);
+  const jornadaStats = useMemo(() => processedData ? getJornadaStats() : [], [processedData]);
+  const seStats = useMemo(() => processedData ? getSEStats() : [], [processedData]);
+  const municipalityStats = useMemo(() => processedData ? getMunicipalityStats() : [], [processedData]);
+  const locationStats = useMemo(() => processedData ? getLocationStats() : [], [processedData]);
+  
+  // Memoização de estatísticas adicionais usadas no JSX
+  const membershipTimeStats = useMemo(() => processedData ? getMembershipTimeStats() : [], [processedData]);
+  const ageGroupStats = useMemo(() => processedData ? getAgeGroupStats() : [], [processedData]);
+  const birthdayStats = useMemo(() => processedData ? getBirthdayStats() : [], [processedData]);
+  const filiadosStats = useMemo(() => processedData ? getFiliadosStats() : { filiados: 0, naoFiliados: 0 }, [processedData]);
+  
+  // Memoização de estatísticas filtradas - dependem dos filtros e das estatísticas base
+  const filteredSEStats = useMemo(() => processedData ? getFilteredSEStats() : [], [processedData, seFilter, seStats]);
+  const filteredMunicipalityStats = useMemo(() => processedData ? getFilteredMunicipalityStats() : [], [processedData, municipalityFilter, municipalityStats]);
+  const filteredLocationStats = useMemo(() => processedData ? getFilteredLocationStats() : [], [processedData, locationFilter, locationStats]);
+
   // Debug: Log dos dados processados
   console.log('🔍 Dashboard - processedData:', {
     hasData: !!processedData,
@@ -2092,12 +2114,6 @@ const Dashboard = () => {
       </div>
     );
   }
-
-  const genderStats = getGenderStats();
-  const raceStats = getRaceStats();
-
-  const mensalidadeStats = getMensalidadeStats();
-  const contribuicaoMinMaxStats = getContribuicaoMinMaxStats();
 
   return (
     <div className="space-y-6">
@@ -2284,7 +2300,7 @@ const Dashboard = () => {
                 </p>
                 {/* Estatísticas de filiados e não filiados */}
                 {(() => {
-                  const filiadosStats = getFiliadosStats();
+                  // filiadosStats já está memoizado acima
                   if (filiadosStats.filiados > 0 || filiadosStats.naoFiliados > 0) {
                     const total = filiadosStats.filiados + filiadosStats.naoFiliados;
                     const percentualFiliados = total > 0 ? ((filiadosStats.filiados / total) * 100).toFixed(1) : '0.0';
@@ -2501,7 +2517,7 @@ const Dashboard = () => {
       )}
 
       {/* Estatísticas por SE e Base Sindical */}
-      {getSEStats().length > 0 && (
+      {seStats.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Estatísticas por SE e Base Sindical</h3>
@@ -2538,7 +2554,7 @@ const Dashboard = () => {
               {/* Informações dos Filtros */}
               <div className="flex justify-end">
                 <div className="text-sm text-gray-600">
-                  {getFilteredSEStats().length.toLocaleString('pt-BR')} registros encontrados
+                  {filteredSEStats.length.toLocaleString('pt-BR')} registros encontrados
                 </div>
               </div>
             </div>
@@ -2549,7 +2565,7 @@ const Dashboard = () => {
               </p>
               
               <div className="overflow-x-auto">
-              {getFilteredSEStats().length > 0 ? (
+              {filteredSEStats.length > 0 ? (
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -2563,7 +2579,7 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {getFilteredSEStats().map((se, index) => (
+                    {filteredSEStats.map((se, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {se.name}
@@ -2604,7 +2620,7 @@ const Dashboard = () => {
                                 className="h-2 rounded-full transition-all duration-300"
                                 style={{ 
                                   backgroundColor: '#c9504c',
-                                  width: `${(se.count / Math.max(...getFilteredSEStats().map(s => s.count))) * 100}%`
+                                  width: `${(se.count / Math.max(...filteredSEStats.map(s => s.count))) * 100}%`
                                 }}
                               ></div>
                             </div>
@@ -2634,7 +2650,7 @@ const Dashboard = () => {
       )}
 
       {/* Análise por Municípios */}
-      {getMunicipalityStats().length > 0 && (
+      {municipalityStats.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 5 Municípios</h3>
@@ -2670,7 +2686,7 @@ const Dashboard = () => {
               {/* Informações dos Filtros */}
               <div className="flex justify-end mt-2">
                 <div className="text-sm text-gray-600">
-                  {getFilteredMunicipalityStats().length.toLocaleString('pt-BR')} registros encontrados
+                  {filteredMunicipalityStats.length.toLocaleString('pt-BR')} registros encontrados
                 </div>
               </div>
             </div>
@@ -2681,7 +2697,7 @@ const Dashboard = () => {
               </p>
               
               <div className="overflow-x-auto">
-                {getFilteredMunicipalityStats().length > 0 ? (
+                {filteredMunicipalityStats.length > 0 ? (
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -2694,7 +2710,7 @@ const Dashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {getFilteredMunicipalityStats().map((municipality, index) => (
+                      {filteredMunicipalityStats.map((municipality, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {municipality.name}
@@ -2732,7 +2748,7 @@ const Dashboard = () => {
                                   className="h-2 rounded-full transition-all duration-300"
                                   style={{ 
                                     backgroundColor: '#c9504c',
-                                    width: `${(municipality.count / Math.max(...getFilteredMunicipalityStats().map(m => m.count))) * 100}%`
+                                    width: `${(municipality.count / Math.max(...filteredMunicipalityStats.map(m => m.count))) * 100}%`
                                   }}
                                 ></div>
                               </div>
@@ -2762,7 +2778,7 @@ const Dashboard = () => {
       )}
 
       {/* Análise por Unidades de Lotação */}
-      {getLocationStats().length > 0 && (
+      {locationStats.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 5 Unidades de Lotação</h3>
@@ -2798,7 +2814,7 @@ const Dashboard = () => {
               {/* Informações dos Filtros */}
               <div className="flex justify-end mt-2">
                 <div className="text-sm text-gray-600">
-                  {getFilteredLocationStats().length.toLocaleString('pt-BR')} registros encontrados
+                  {filteredLocationStats.length.toLocaleString('pt-BR')} registros encontrados
                 </div>
               </div>
             </div>
@@ -2808,7 +2824,7 @@ const Dashboard = () => {
                 {locationFilter ? 'Mostrando todas as unidades que correspondem ao filtro aplicado' : 'Mostrando as 5 unidades com maior número de funcionários'}
               </p>
               <div className="overflow-x-auto">
-                {getFilteredLocationStats().length > 0 ? (
+                {filteredLocationStats.length > 0 ? (
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -2821,7 +2837,7 @@ const Dashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {getFilteredLocationStats().map((location, index) => (
+                      {filteredLocationStats.map((location, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {location.name}
@@ -2859,7 +2875,7 @@ const Dashboard = () => {
                                   className="h-2 rounded-full transition-all duration-300"
                                   style={{ 
                                     backgroundColor: '#c9504c',
-                                    width: `${(location.count / Math.max(...getFilteredLocationStats().map(l => l.count))) * 100}%`
+                                    width: `${(location.count / Math.max(...filteredLocationStats.map(l => l.count))) * 100}%`
                                   }}
                                 ></div>
                               </div>
@@ -2891,7 +2907,7 @@ const Dashboard = () => {
 
 
       {/* Estatísticas por Estado */}
-      {getStateStats().length > 0 && (
+      {stateStats.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Top 10 Estados</h3>
@@ -2908,7 +2924,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {getStateStats().map((state, index) => (
+                  {stateStats.map((state, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {state.name}
@@ -2945,7 +2961,7 @@ const Dashboard = () => {
       )}
 
       {/* Estatísticas por Tempo de Filiação */}
-      {getMembershipTimeStats().length > 0 && (
+      {membershipTimeStats.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Tempo de Filiação</h3>
@@ -2961,7 +2977,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {getMembershipTimeStats().map((time, index) => (
+                  {membershipTimeStats.map((time, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {time.range}
@@ -2995,7 +3011,7 @@ const Dashboard = () => {
 
 
       {/* Estatísticas por Faixa Etária */}
-      {getAgeGroupStats().length > 0 && (
+      {ageGroupStats.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Faixa Etária</h3>
@@ -3011,7 +3027,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {getAgeGroupStats().map((age, index) => (
+                  {ageGroupStats.map((age, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {age.range}
@@ -3308,7 +3324,7 @@ const Dashboard = () => {
       )}
 
       {/* Jornadas de Trabalho - Gráfico de Pizza Visual */}
-      {getJornadaStats().length > 0 && (
+      {jornadaStats.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Jornadas de Trabalho</h3>
@@ -3318,10 +3334,10 @@ const Dashboard = () => {
               {/* Gráfico de Pizza Visual */}
               <div className="flex items-center justify-center">
                 <div className="relative w-48 h-48">
-                  {getJornadaStats().map((jornada, index) => {
+                  {jornadaStats.map((jornada, index) => {
                     const colors = ['#2f4a8c', '#f9695f', '#1d335b', '#c9504c', '#ffc9c0'];
-                    const total = getJornadaStats().reduce((sum, j) => sum + j.count, 0);
-                    const startAngle = getJornadaStats()
+                    const total = jornadaStats.reduce((sum, j) => sum + j.count, 0);
+                    const startAngle = jornadaStats
                       .slice(0, index)
                       .reduce((sum, j) => sum + (j.count / total) * 360, 0);
                     const angle = (jornada.count / total) * 360;
@@ -3348,7 +3364,7 @@ const Dashboard = () => {
                   <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-gray-700">
-                        {getJornadaStats().reduce((sum, j) => sum + j.count, 0).toLocaleString('pt-BR')}
+                        {jornadaStats.reduce((sum, j) => sum + j.count, 0).toLocaleString('pt-BR')}
                       </div>
                       <div className="text-xs text-gray-500">Total</div>
                     </div>
@@ -3358,7 +3374,7 @@ const Dashboard = () => {
               
               {/* Legenda */}
               <div className="space-y-3">
-                {getJornadaStats().map((jornada, index) => {
+                {jornadaStats.map((jornada, index) => {
                   const colors = ['#2f4a8c', '#f9695f', '#1d335b', '#c9504c', '#ffc9c0'];
                   const isHighlighted = highlightedJornada === jornada.name;
                   
@@ -3627,7 +3643,7 @@ const Dashboard = () => {
       )}
 
       {/* Aniversariantes do Mês - Gráfico de Barras */}
-      {getBirthdayStats().length > 0 ? (
+      {birthdayStats.length > 0 ? (
         <div className="card">
           <div className="card-header">
             <div className="flex items-center space-x-2">
@@ -3639,7 +3655,7 @@ const Dashboard = () => {
             {/* Gráfico de Barras - Parte Superior */}
             <div className="mb-8">
               <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={getBirthdayStats()}>
+                <BarChart data={birthdayStats}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="month" 
@@ -3662,7 +3678,7 @@ const Dashboard = () => {
                     fill="#ffc9c0"
                     radius={[4, 4, 0, 0]}
                   >
-                    {getBirthdayStats().map((entry, index) => {
+                    {birthdayStats.map((entry, index) => {
                       const currentMonth = new Date().getMonth() + 1; // Mês atual (1-12)
                       const isCurrentMonth = entry.monthNumber === currentMonth;
                       
@@ -3682,10 +3698,10 @@ const Dashboard = () => {
             <div className="space-y-4">
               {/* Grid de Cards por Mês - 6 por linha */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {getBirthdayStats().map((month) => {
+                {birthdayStats.map((month) => {
                   const currentMonth = new Date().getMonth() + 1; // Mês atual (1-12)
                   const isCurrentMonth = month.monthNumber === currentMonth;
-                  const totalAniversariantes = getBirthdayStats().reduce((sum, m) => sum + m.count, 0);
+                  const totalAniversariantes = birthdayStats.reduce((sum, m) => sum + m.count, 0);
                   const percentual = ((month.count / totalAniversariantes) * 100).toFixed(1);
                   
                   return (
@@ -4156,14 +4172,14 @@ const Dashboard = () => {
         )}
 
         {/* Gráfico de Linha - Tempo de Filiação */}
-        {getMembershipTimeStats().length > 0 && (
+        {membershipTimeStats.length > 0 && (
           <div className="card">
             <div className="card-header">
               <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Distribuição por Tempo de Filiação</h3>
             </div>
             <div className="card-content">
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={getMembershipTimeStats()}>
+                <LineChart data={membershipTimeStats}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="range" />
                   <YAxis />
@@ -4178,7 +4194,7 @@ const Dashboard = () => {
 
 
         {/* Gráfico de Pizza - Distribuição por Faixa Etária */}
-        {getAgeGroupStats().length > 0 && (
+        {ageGroupStats.length > 0 && (
           <div className="card">
             <div className="card-header">
               <h3 className="text-lg font-medium" style={{ color: '#1d335b' }}>Distribuição por Faixa Etária</h3>
@@ -4187,7 +4203,7 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={getAgeGroupStats()}
+                    data={ageGroupStats}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -4196,7 +4212,7 @@ const Dashboard = () => {
                     fill="#8884d8"
                     dataKey="count"
                   >
-                    {getAgeGroupStats().map((_, index) => (
+                    {ageGroupStats.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={['#1d335b', '#c9504c', '#4f46e5', '#059669', '#dc2626', '#ea580c'][index % 6]} />
                     ))}
                   </Pie>
