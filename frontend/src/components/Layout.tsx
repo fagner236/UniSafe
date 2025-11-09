@@ -5,9 +5,11 @@ import Footer from './Footer';
 // import VersionNotification from './VersionNotification';
 import GuestUserMessage from './GuestUserMessage';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 
 const Layout = () => {
   const { user } = useAuth();
+  const { isCollapsed } = useSidebar();
   const location = useLocation();
   const isGuestUser = user?.perfil === 'guest';
   
@@ -27,7 +29,9 @@ const Layout = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Sidebar />
-      <div className="lg:pl-64 flex flex-col flex-1">
+      <div className={`flex flex-col flex-1 transition-all duration-300 ${
+        isCollapsed ? 'lg:pl-20' : 'lg:pl-64'
+      }`}>
         <Header />
         <main className="py-6 flex-1">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

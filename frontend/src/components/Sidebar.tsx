@@ -4,14 +4,20 @@ import {
   Users, 
   Menu,
   X,
-  Settings
+  Settings,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { getVersionString } from '../config/version';
 
 const Sidebar = () => {
+  // Estado para mobile (abre/fecha overlay)
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Estado para desktop (recolhido/expandido) - compartilhado via contexto
+  const { isCollapsed, toggleSidebar } = useSidebar();
   const { user } = useAuth();
 
   // Verificar se o usuário é da empresa dona do sistema
@@ -122,22 +128,48 @@ const Sidebar = () => {
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow" style={{ backgroundColor: '#1d335b' }}>
-          <div className="flex items-center justify-center px-4 -pt-2 pb-6" style={{ backgroundColor: '#ffc9c0' }}>
+      {/* Desktop sidebar - Recolhível */}
+      <div className={`hidden lg:fixed lg:inset-y-0 lg:flex lg:flex-col transition-all duration-300 ${
+        isCollapsed ? 'lg:w-20' : 'lg:w-64'
+      }`}>
+        <div className="flex flex-col flex-grow relative" style={{ backgroundColor: '#1d335b' }}>
+          {/* Header com logo */}
+          <div className={`flex items-center justify-center px-4 -pt-2 pb-6 transition-all duration-300 ${
+            isCollapsed ? 'px-2' : ''
+          }`} style={{ backgroundColor: '#ffc9c0' }}>
             <div className="relative flex items-center">
-              <img src="/logo.svg.png" alt="evia Logo" className="h-14 w-auto -ml-8" style={{ objectFit: 'contain' }} />
-              <h1 className="absolute text-sm font-light tracking-wide ml-1 mt-12" style={{ color: '#1d335b' }}>UniSafe</h1>
+              {!isCollapsed ? (
+                <>
+                  <img src="/logo.svg.png" alt="evia Logo" className="h-14 w-auto -ml-8" style={{ objectFit: 'contain' }} />
+                  <h1 className="absolute text-sm font-light tracking-wide ml-1 mt-12" style={{ color: '#1d335b' }}>UniSafe</h1>
+                </>
+              ) : (
+                <img src="/logo.svg.png" alt="evia Logo" className="h-10 w-auto" style={{ objectFit: 'contain' }} />
+              )}
             </div>
           </div>
+
+          {/* Botão de toggle - Desktop */}
+          <button
+            onClick={toggleSidebar}
+            className="absolute top-4 -right-3 z-10 p-1 rounded-full bg-white shadow-md hover:shadow-lg transition-all duration-200"
+            style={{ backgroundColor: '#ffc9c0', color: '#1d335b' }}
+            aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </button>
+
           <nav className="flex-1 space-y-1 px-2 py-4">
             {navigation.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.href}
                 className={({ isActive }) =>
-                  `group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  `group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isActive ? 'shadow-md' : 'hover:shadow-sm'
                   }`
                 }
@@ -146,14 +178,15 @@ const Sidebar = () => {
                   color: isActive ? '#1d335b' : '#ffffff',
                   borderLeft: isActive ? '4px solid #c9504c' : '4px solid transparent'
                 })}
+                title={isCollapsed ? item.name : undefined}
               >
                 {({ isActive }) => (
                   <>
                     <item.icon 
-                      className="mr-3 h-5 w-5" 
+                      className={`${isCollapsed ? 'h-5 w-5' : 'mr-3 h-5 w-5'}`}
                       style={{ color: isActive ? '#1d335b' : '#ffffff' }} 
                     />
-                    {item.name}
+                    {!isCollapsed && <span>{item.name}</span>}
                   </>
                 )}
               </NavLink>
@@ -162,11 +195,11 @@ const Sidebar = () => {
           
           {/* Menu de Administração do Sistema - Apenas para empresa dona do sistema */}
           {isSystemAdmin && (
-            <div className="px-2 py-4 border-t border-b" style={{ borderColor: '#c9504c' }}>
+            <div className={`px-2 py-4 border-t border-b ${isCollapsed ? 'px-1' : ''}`} style={{ borderColor: '#c9504c' }}>
               <NavLink
                 to="/admin"
                 className={({ isActive }) =>
-                  `group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  `group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isActive ? 'shadow-md' : 'hover:shadow-sm'
                   }`
                 }
@@ -175,14 +208,15 @@ const Sidebar = () => {
                   color: isActive ? '#1d335b' : '#ffc9c0',
                   borderLeft: isActive ? '4px solid #c9504c' : '4px solid transparent'
                 })}
+                title={isCollapsed ? 'Sistema' : undefined}
               >
                 {({ isActive }) => (
                   <>
                     <Settings 
-                      className="mr-3 h-4 w-4" 
+                      className={`${isCollapsed ? 'h-4 w-4' : 'mr-3 h-4 w-4'}`}
                       style={{ color: isActive ? '#1d335b' : '#ffc9c0' }} 
                     />
-                    Sistema
+                    {!isCollapsed && <span>Sistema</span>}
                   </>
                 )}
               </NavLink>
@@ -190,10 +224,17 @@ const Sidebar = () => {
           )}
           
           {/* Footer com versão dinâmica */}
-          <div className="px-4 py-3 border-t" style={{ borderColor: '#c9504c' }}>
-            <p className="text-xs text-center" style={{ color: '#ffc9c0' }}>
-              {getVersionString()}
-            </p>
+          <div className={`px-4 py-3 border-t ${isCollapsed ? 'px-2' : ''}`} style={{ borderColor: '#c9504c' }}>
+            {!isCollapsed && (
+              <p className="text-xs text-center" style={{ color: '#ffc9c0' }}>
+                {getVersionString()}
+              </p>
+            )}
+            {isCollapsed && (
+              <p className="text-xs text-center" style={{ color: '#ffc9c0' }}>
+                v1.9.3
+              </p>
+            )}
           </div>
         </div>
       </div>

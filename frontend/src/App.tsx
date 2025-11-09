@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { DataProvider } from '@/contexts/DataContext';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Layout from '@/components/Layout';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -28,7 +29,8 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <DataProvider>
-          <Routes>
+          <SidebarProvider>
+            <Routes>
             {/* Rotas públicas - sem lazy loading para carregamento rápido */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -102,6 +104,7 @@ function App() {
               />
             </Route>
           </Routes>
+          </SidebarProvider>
         </DataProvider>
       </AuthProvider>
     </ErrorBoundary>
