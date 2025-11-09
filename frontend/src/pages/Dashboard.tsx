@@ -47,6 +47,7 @@ const Dashboard = () => {
   const lastLoadedBaseSindicalRef = useRef<string | null>(null);
   const lastLoadedMonthRef = useRef<string | null>(null);
   const isInitializedRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null); // Rastrear último usuário para resetar quando mudar
 
   // Função para verificar se o usuário é admin da empresa dona do sistema
   const isSystemOwnerAdmin = () => {
@@ -68,11 +69,23 @@ const Dashboard = () => {
       return;
     }
     
+    // Se o usuário mudou, limpar refs de carregamento anterior
+    if (lastUserIdRef.current !== user?.id_usuario) {
+      console.log('🔄 Usuário mudou, limpando refs de carregamento anterior');
+      console.log('🔄 Usuário anterior:', lastUserIdRef.current);
+      console.log('🔄 Usuário atual:', user?.id_usuario);
+      lastLoadedBaseSindicalRef.current = null;
+      lastLoadedMonthRef.current = null;
+      lastUserIdRef.current = user?.id_usuario || null;
+    }
+    
     // Verificar se já carregou os mesmos dados
+    // IMPORTANTE: Verificar também se o usuário é o mesmo para evitar usar cache de outro usuário
     if (!forceReload && 
         lastLoadedBaseSindicalRef.current === selectedBaseSindical && 
         lastLoadedMonthRef.current === selectedMonth && 
-        processedData) {
+        processedData &&
+        lastUserIdRef.current === user?.id_usuario) {
       console.log('⚠️ Dados já carregados para esta combinação, ignorando requisição');
       return;
     }
@@ -80,12 +93,16 @@ const Dashboard = () => {
     try {
       isLoadingRef.current = true;
       console.log('🚀 Iniciando carregamento...');
+      console.log('🚀 Usuário ID:', user?.id_usuario);
+      console.log('🚀 Base sindical:', selectedBaseSindical);
+      console.log('🚀 Mês:', selectedMonth);
       
       await loadBaseDadosData(selectedMonth, selectedBaseSindical);
       
       // Atualizar refs após carregamento bem-sucedido
       lastLoadedBaseSindicalRef.current = selectedBaseSindical;
       lastLoadedMonthRef.current = selectedMonth;
+      lastUserIdRef.current = user?.id_usuario || null;
       
       console.log('✅ Carregamento concluído com sucesso');
     } catch (error) {
@@ -96,8 +113,29 @@ const Dashboard = () => {
     console.log('📊 ===============================');
   }, [user, selectedMonth, selectedBaseSindical, isLoadingBaseDados, loadBaseDadosData, processedData]);
 
-  // Efeito para inicialização única
+  // Efeito para inicialização única - Resetar quando usuário mudar
   useEffect(() => {
+    // Resetar inicialização quando usuário mudar (novo login)
+    if (user && isInitializedRef.current) {
+      const currentUserId = user.id_usuario;
+      const lastUserId = lastUserIdRef.current;
+      
+      // Se o usuário mudou (diferente ID), resetar tudo
+      if (currentUserId !== lastUserId) {
+        console.log('🔄 Novo usuário detectado, resetando inicialização...');
+        console.log('🔄 Usuário anterior:', lastUserId);
+        console.log('🔄 Usuário atual:', currentUserId);
+        isInitializedRef.current = false;
+        lastLoadedBaseSindicalRef.current = null;
+        lastLoadedMonthRef.current = null;
+        lastUserIdRef.current = currentUserId;
+      }
+    } else if (user && !lastUserIdRef.current) {
+      // Primeira vez que o usuário é definido
+      lastUserIdRef.current = user.id_usuario;
+      console.log('🆕 Primeiro usuário detectado:', user.id_usuario);
+    }
+    
     if (!isInitializedRef.current && user) {
       console.log('🚀 Inicializando Dashboard...');
       console.log('🚀 Usuário:', user);
@@ -139,12 +177,14 @@ const Dashboard = () => {
       }
       }
       
-      // Definir mês selecionado
+      // Definir mês selecionado apenas se já houver dados processados
+      // Para novos usuários, isso será undefined e não é problema
       if (processedData?.selectedMonthYear && !selectedMonth) {
         setSelectedMonth(processedData.selectedMonthYear);
       }
       
       isInitializedRef.current = true;
+      console.log('✅ Dashboard inicializado');
     }
   }, [user, processedData?.selectedMonthYear, selectedMonth]);
 
@@ -153,35 +193,56 @@ const Dashboard = () => {
     console.log('🔄 === VERIFICANDO CARREGAMENTO ===');
     console.log('🔄 isInitializedRef.current:', isInitializedRef.current);
     console.log('🔄 selectedBaseSindical:', selectedBaseSindical);
+    console.log('🔄 user?.base_sindical:', user?.base_sindical);
     console.log('🔄 isLoadingRef.current:', isLoadingRef.current);
+    console.log('🔄 isLoadingBaseDados:', isLoadingBaseDados);
     console.log('🔄 processedData:', !!processedData);
+    console.log('🔄 processedData?.selectedBaseSindical:', processedData?.selectedBaseSindical);
     
-    if (isInitializedRef.current && selectedBaseSindical && !isLoadingRef.current) {
-      // Verificar se precisa carregar dados - lógica mais restritiva para evitar loops
-      const needsReload = !processedData || 
-                         (processedData.selectedBaseSindical !== selectedBaseSindical) ||
-                         (processedData.selectedMonthYear !== selectedMonth && selectedMonth);
-      
-      console.log('🔄 needsReload:', needsReload);
-      console.log('🔄 processedData.selectedBaseSindical:', processedData?.selectedBaseSindical);
-      console.log('🔄 processedData.selectedMonthYear:', processedData?.selectedMonthYear);
-      
-      // Carregar dados imediatamente sem debounce
-      if (needsReload) {
-        console.log('🔄 Carregando dados...');
-        console.log('🔄 Base sindical:', selectedBaseSindical);
-        console.log('🔄 Mês:', selectedMonth);
-        
-        // Carregar imediatamente para melhor performance
-        handleLoadBaseDados(true);
-      } else {
-        console.log('✅ Dados já estão atualizados, não precisa recarregar');
+    // Se ainda não foi inicializado, não fazer nada
+    if (!isInitializedRef.current) {
+      console.log('⚠️ Ainda não foi inicializado, aguardando...');
+      return;
+    }
+    
+    // Se não há base sindical selecionada, não pode carregar
+    if (!selectedBaseSindical) {
+      console.log('⚠️ selectedBaseSindical vazio, aguardando...');
+      // Se o usuário tem base_sindical mas selectedBaseSindical está vazio, definir
+      if (user?.base_sindical && !selectedBaseSindical) {
+        console.log('⚠️ Corrigindo: user.base_sindical existe mas selectedBaseSindical está vazio. Definindo...');
+        setSelectedBaseSindical(user.base_sindical);
+        localStorage.setItem('selectedBaseSindical', user.base_sindical);
       }
+      return;
+    }
+    
+    // Se está carregando, não fazer nada
+    if (isLoadingRef.current || isLoadingBaseDados) {
+      console.log('⚠️ Carregamento já em andamento, aguardando...');
+      return;
+    }
+    
+    // Verificar se precisa carregar dados - lógica mais restritiva para evitar loops
+    const needsReload = !processedData || 
+                       (processedData.selectedBaseSindical !== selectedBaseSindical) ||
+                       (processedData.selectedMonthYear !== selectedMonth && selectedMonth);
+    
+    console.log('🔄 needsReload:', needsReload);
+    console.log('🔄 processedData?.selectedBaseSindical:', processedData?.selectedBaseSindical);
+    console.log('🔄 processedData?.selectedMonthYear:', processedData?.selectedMonthYear);
+    console.log('🔄 selectedMonth:', selectedMonth);
+    
+    // Carregar dados apenas se necessário
+    if (needsReload) {
+      console.log('🔄 Iniciando carregamento de dados...');
+      handleLoadBaseDados(true);
     } else {
-      console.log('⚠️ Condições não atendidas para carregamento');
+      console.log('✅ Dados já carregados, não precisa recarregar');
     }
     console.log('🔄 ===============================');
-  }, [selectedBaseSindical, selectedMonth, processedData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBaseSindical, selectedMonth]);
 
   // Efeito para fechar seletores quando clicar fora deles
   useEffect(() => {
