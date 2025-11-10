@@ -80,8 +80,29 @@ export async function generatePresignedUrl({
 
   await s3.send(command);
   console.log("✅ Arquivo enviado para o bucket");
-  // 4. Retorna URL com expiração de 60s
+  // 4. Retorna URL com expiração de 60s (mantido para compatibilidade)
   return await getSignedUrl(s3, command, { expiresIn: 60 });
+}
+
+/**
+ * Faz upload de um arquivo para o Wasabi e retorna o nome do arquivo
+ * @param bucket Nome do bucket (sem o prefixo 'bkt-')
+ * @param file Arquivo a ser enviado
+ * @param key Nome do arquivo (chave)
+ * @returns Nome do arquivo (key) após upload bem-sucedido
+ */
+export async function uploadFileToWasabi({
+  bucket,
+  file,
+  key,
+}: {
+  bucket: string;
+  file: any;
+  key: string;
+}): Promise<string> {
+  // Reutilizar a lógica de generatePresignedUrl mas retornar apenas o key
+  await generatePresignedUrl({ bucket, file, key });
+  return key;
 }
 
 
@@ -100,4 +121,28 @@ export async function getFileUrl({
 
   // URL válida por 60 segundos
   return await getSignedUrl(s3, command, { expiresIn: 60 });
+}
+
+/**
+ * Constrói a URL permanente de um arquivo no Wasabi
+ * @param bucket Nome do bucket (sem o prefixo 'bkt-')
+ * @param key Chave do arquivo (nome do arquivo)
+ * @returns URL permanente do arquivo no Wasabi
+ */
+export function getPermanentFileUrl(bucket: string, key: string): string {
+  // Remover barras do nome do bucket e adicionar prefixo
+  const bucketName = 'bkt-' + bucket.replace('/', '_');
+  
+  // Construir URL permanente do Wasabi
+  // Formato: https://{endpoint}/{bucket}/{key}
+  const endpoint = BUCKET_ENDPOINT || '';
+  
+  // Remover protocolo se presente (https:// ou http://)
+  const cleanEndpoint = endpoint.replace(/^https?:\/\//, '');
+  
+  // Construir URL completa
+  const url = `https://${cleanEndpoint}/${bucketName}/${key}`;
+  
+  console.log(`🔗 URL permanente construída: ${url}`);
+  return url;
 }

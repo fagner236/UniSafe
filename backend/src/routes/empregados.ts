@@ -6,7 +6,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-import { generatePresignedUrl, getFileUrl } from "../bucket/bucket.service";
+import { uploadFileToWasabi, getFileUrl, getPermanentFileUrl } from "../bucket/bucket.service";
 import { url } from 'inspector';
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -157,19 +157,25 @@ router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res
       where: { matricula }
     });
 
-    let fotoPath = null;
+    let fotoFileName = null;
     if (req.file) {
-//file.mimetype.startsWith('image/')
       try {
-        const url = await generatePresignedUrl({
-          bucket: base_sindical.replace('/','_') || "unisafe",
+        // Fazer upload da foto para o Wasabi
+        const bucket = base_sindical?.replace('/','_') || "unisafe";
+        const key = `${matricula}.png`;
+        
+        // Fazer upload e obter o nome do arquivo
+        fotoFileName = await uploadFileToWasabi({
+          bucket: bucket,
           file: req.file,
-          key:`${matricula}.png`,
+          key: key,
         });
-        console.log("URL para upload:", url);
-        fotoPath = url
+        
+        console.log("✅ Foto enviada para o Wasabi:", fotoFileName);
       } catch (err) {
-        console.error("Erro ao gerar URL:", err);
+        console.error("❌ Erro ao enviar foto para o Wasabi:", err);
+        // Não interromper o processo se houver erro no upload da foto
+        fotoFileName = null;
       }
     }
 
@@ -177,15 +183,26 @@ router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res
       // Atualizar empregado existente
       console.log('📊 Atualizando empregado(a) existente:', empregadoExistente.id_empregados);
       
+      // Preparar dados de atualização
+      const updateData: any = {
+        email: cleanEmail !== undefined ? cleanEmail : empregadoExistente.email,
+        celular: cleanCelular !== undefined ? cleanCelular : empregadoExistente.celular,
+        id_usuario,
+        data_atualizacao: new Date()
+      };
+      
+      // Atualizar foto apenas se uma nova foi enviada
+      if (fotoFileName) {
+        updateData.foto = fotoFileName;
+        console.log('📸 Nova foto será salva:', fotoFileName);
+      } else {
+        // Manter foto existente se não enviar nova
+        console.log('📸 Mantendo foto existente:', empregadoExistente.foto);
+      }
+      
       const empregadoAtualizado = await prisma.empregado.update({
         where: { matricula },
-        data: {
-          email: cleanEmail || null,
-          celular: cleanCelular || null,
-          foto: `${matricula}.png` || empregadoExistente.foto, // Manter foto existente se não enviar nova
-          id_usuario,
-          data_atualizacao: new Date()
-        }
+        data: updateData
       });
 
       console.log('✅ Empregado(a) atualizado(a) com sucesso:', empregadoAtualizado.id_empregados);
@@ -205,7 +222,7 @@ router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res
           matricula,
           email: cleanEmail || null,
           celular: cleanCelular || null,
-          foto: fotoPath,
+          foto: fotoFileName, // Salvar apenas o nome do arquivo
           id_usuario,
           data_criacao: new Date(),
           data_atualizacao: new Date()
@@ -330,18 +347,19 @@ router.get('/:matricula', auth, requireAdmin, async (req: any, res: any) => {
     }
 
     console.log('✅ Empregado(a) encontrado(a):', empregado.id_empregados);
-    console.log('📸 Foto do(a) empregado(a):', empregado.foto);
+    console.log('📸 Foto do(a) empregado(a) (nome do arquivo):', empregado.foto);
 
-    
-    try {
-      const url = await getFileUrl({
-        bucket: base!.base_sindical.replace('/','_') || "unisafe",
-        key:empregado.foto!
-      });
-      console.log("URL para upload:", url);
-      empregado.foto = url
-    } catch (err) {
-      console.error("Erro ao gerar URL:", err);
+    // Construir URL permanente da foto se existir
+    if (empregado.foto && base) {
+      try {
+        const bucket = base.base_sindical?.replace('/','_') || "unisafe";
+        const permanentUrl = getPermanentFileUrl(bucket, empregado.foto);
+        console.log("🔗 URL permanente da foto:", permanentUrl);
+        empregado.foto = permanentUrl;
+      } catch (err) {
+        console.error("❌ Erro ao construir URL permanente da foto:", err);
+        // Manter o nome do arquivo se houver erro
+      }
     }
 
 

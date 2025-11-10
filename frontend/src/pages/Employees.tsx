@@ -494,18 +494,12 @@ const Employees = () => {
         formData.append('celular', '');
       }
       
+      // Adicionar base_sindical (sempre necessário para construir URL da foto)
+      formData.append('base_sindical', editFormData?.base_sindical || selectedEmployee?.base_sindical || '');
+      
       // Adicionar foto se existir
       if (editFormData.foto) {
-        //SALVAR A FOTO NO BUCKET E PEGAR A URL      
-        //const bucket = editFormData?.base_sindical ?? "unisafe";
-        //console.log("BUCKET", bucket);
-        //uploadFile(editFormData.foto, bucket).then((fotoUrl) => {
-        //  console.log('🔍 Foto enviada para o bucket, URL:', fotoUrl);
-        formData.append('base_sindical', editFormData?.base_sindical);
-        formData.append('foto', editFormData?.foto);
-        //}).catch((error) => {
-        //  console.error('❌ Erro ao enviar foto para o bucket:', error);
-        //});
+        formData.append('foto', editFormData.foto);
       }
 
       console.log('🔍 Dados sendo enviados:', {
