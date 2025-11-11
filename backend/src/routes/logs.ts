@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth';
+import LogCleanupService from '../services/logCleanupService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -70,25 +71,26 @@ router.get('/', auth, requireSystemOwner, async (req: any, res: any) => {
     // Construir filtros de busca
     const whereClause: any = {};
 
-    if (level) {
+    // Aplicar filtros apenas se não estiverem vazios
+    if (level && level.trim() !== '') {
       whereClause.level = level;
     }
 
-    if (category) {
+    if (category && category.trim() !== '') {
       whereClause.category = category;
     }
 
     if (dateFrom || dateTo) {
       whereClause.timestamp = {};
-      if (dateFrom) {
+      if (dateFrom && dateFrom.trim() !== '') {
         whereClause.timestamp.gte = new Date(dateFrom as string);
       }
-      if (dateTo) {
+      if (dateTo && dateTo.trim() !== '') {
         whereClause.timestamp.lte = new Date(dateTo as string);
       }
     }
 
-    if (search) {
+    if (search && search.trim() !== '') {
       whereClause.OR = [
         { message: { contains: search as string, mode: 'insensitive' } },
         { userEmail: { contains: search as string, mode: 'insensitive' } },
@@ -96,20 +98,25 @@ router.get('/', auth, requireSystemOwner, async (req: any, res: any) => {
       ];
     }
 
-    if (userId) {
+    if (userId && userId.trim() !== '') {
       whereClause.userId = userId;
     }
 
-    if (companyId) {
+    if (companyId && companyId.trim() !== '') {
       whereClause.companyId = companyId;
     }
 
-    console.log('🔍 Filtros construídos:', whereClause);
+    console.log('🔍 Filtros construídos:', JSON.stringify(whereClause, null, 2));
+
+    // Se whereClause estiver vazio, buscar todos os logs
+    const finalWhereClause = Object.keys(whereClause).length === 0 ? undefined : whereClause;
+    
+    console.log('🔍 Where clause final:', finalWhereClause ? JSON.stringify(finalWhereClause, null, 2) : '{} (todos os logs)');
 
     // Buscar logs com paginação
     const [logs, totalLogs] = await Promise.all([
       prisma.systemLog.findMany({
-        where: whereClause,
+        where: finalWhereClause || {},
         orderBy: { timestamp: 'desc' },
         skip: offset,
         take: parseInt(limit as string),
@@ -128,10 +135,10 @@ router.get('/', auth, requireSystemOwner, async (req: any, res: any) => {
           }
         }
       }),
-      prisma.systemLog.count({ where: whereClause })
+      prisma.systemLog.count({ where: finalWhereClause || {} })
     ]);
 
-    console.log(`📋 Logs encontrados: ${logs.length} de ${totalLogs}`);
+    console.log(`📋 Logs encontrados: ${logs.length} de ${totalLogs} total no banco`);
 
     // Formatar logs para resposta
     const formattedLogs = logs.map(log => ({
@@ -408,6 +415,47 @@ router.get('/export', auth, requireSystemOwner, async (req: any, res: any) => {
     }
   } catch (error) {
     console.error('❌ Erro ao exportar logs:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+});
+
+// GET /api/admin/logs/cleanup-stats - Estatísticas de limpeza de logs
+router.get('/cleanup-stats', auth, requireSystemOwner, async (req: any, res: any) => {
+  try {
+    console.log('📊 === ROTA /api/admin/logs/cleanup-stats CHAMADA ===');
+    
+    const stats = await LogCleanupService.getCleanupStats();
+    
+    return res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter estatísticas de limpeza:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+});
+
+// POST /api/admin/logs/cleanup - Executar limpeza manual de logs
+router.post('/cleanup', auth, requireSystemOwner, async (req: any, res: any) => {
+  try {
+    console.log('🧹 === ROTA /api/admin/logs/cleanup CHAMADA ===');
+    
+    const result = await LogCleanupService.cleanupOldLogs();
+    
+    return res.json({
+      success: true,
+      message: `Limpeza concluída: ${result.deleted} logs removidos`,
+      data: result
+    });
+  } catch (error) {
+    console.error('❌ Erro ao executar limpeza de logs:', error);
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'

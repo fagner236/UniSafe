@@ -1,12 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
-  Database, 
-  Shield, 
-  Settings,
   FileText,
-  UserCheck,
-  Zap
+  Zap,
+  Settings,
+  Shield
 } from 'lucide-react';
 
 const Admin = () => {
@@ -18,58 +16,19 @@ const Admin = () => {
       title: 'Gestão de Usuários',
       description: 'Gerenciar permissões e acessos dos usuários do sistema',
       icon: Users,
-      href: '/admin/users',
-      color: 'bg-blue-600'
-    },
-
-    {
-      title: 'Backup e Restauração',
-      description: 'Gerenciar backups do banco de dados e restaurações',
-      icon: Database,
-      href: '/admin/backup',
-      color: 'bg-purple-600'
+      href: '/admin/users'
     },
     {
       title: 'Logs do Sistema',
       description: 'Visualizar logs de atividades e auditoria',
       icon: FileText,
-      href: '/admin/logs',
-      color: 'bg-orange-600'
-    },
-    {
-      title: 'Configurações Gerais',
-      description: 'Configurar parâmetros globais do sistema',
-      icon: Settings,
-      href: '/admin/settings',
-      color: 'bg-gray-600'
-    },
-    {
-      title: 'Relatórios Avançados',
-      description: 'Acessar relatórios detalhados e análises',
-      icon: Users, // Changed from BarChart3 to Users as per new_code
-      href: '/admin/reports',
-      color: 'bg-indigo-600'
-    },
-    {
-      title: 'Segurança',
-      description: 'Configurações de segurança e políticas de acesso',
-      icon: Shield,
-      href: '/admin/security',
-      color: 'bg-red-600'
-    },
-    {
-      title: 'Validação de Dados',
-      description: 'Ferramentas para validação e correção de dados',
-      icon: UserCheck,
-      href: '/admin/validation',
-      color: 'bg-teal-600'
+      href: '/admin/logs'
     },
     {
       title: 'Administração de Cache',
       description: 'Gerenciar cache Redis e limpeza manual',
       icon: Zap,
-      href: '/admin/cache',
-      color: 'bg-yellow-600'
+      href: '/admin/cache'
     }
   ];
 
@@ -115,8 +74,8 @@ const Admin = () => {
               className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer group hover:border-gray-300"
             >
               <div className="p-6">
-                <div className={`inline-flex p-3 rounded-lg ${feature.color} mb-4`}>
-                  <feature.icon className="h-6 w-6 text-white" />
+                <div className="inline-flex p-3 rounded-lg mb-4" style={{ backgroundColor: '#ffc9c0' }}>
+                  <feature.icon className="h-6 w-6" style={{ color: '#1d335b' }} />
                 </div>
                 <h3 className="text-lg font-semibold mb-2 transition-colors" style={{ color: '#1d335b' }} onMouseEnter={(e) => (e.target as HTMLHeadingElement).style.color = '#c9504c'} onMouseLeave={(e) => (e.target as HTMLHeadingElement).style.color = '#1d335b'}>
                   {feature.title}
@@ -133,25 +92,6 @@ const Admin = () => {
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Ações Rápidas */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="flex items-center justify-center px-4 py-2 rounded-lg text-white transition-colors" style={{ backgroundColor: '#1d335b' }} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#2a4a7a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#1d335b'}>
-              <Database className="h-4 w-4 mr-2" />
-              Backup Manual
-            </button>
-            <button className="flex items-center justify-center px-4 py-2 rounded-lg text-white transition-colors" style={{ backgroundColor: '#c9504c' }} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#d65a56'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#c9504c'}>
-              <Users className="h-4 w-4 mr-2" />
-              Novo Usuário
-            </button>
-            <button className="flex items-center justify-center px-4 py-2 rounded-lg text-white transition-colors" style={{ backgroundColor: '#6b7280' }} onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#7c8a9a'} onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#6b7280'}>
-              <FileText className="h-4 w-4 mr-2" />
-              Gerar Relatório
-            </button>
-          </div>
         </div>
       </div>
     </div>

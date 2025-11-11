@@ -12,6 +12,14 @@ const Employees = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 500); // Debounce de 500ms
+
+  // Colunas que devem ser ocultadas na página Base de Dados (mas mantidas no Dashboard)
+  const HIDDEN_COLUMNS = ['RACA', 'GRAU_INSTRUCAO', 'TIPO_DEFICIENCIA'];
+
+  // Filtrar colunas visíveis (remover colunas ocultas)
+  const visibleColumns = processedData?.columns.filter(
+    column => !HIDDEN_COLUMNS.includes(column.toUpperCase())
+  ) || [];
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortColumn, setSortColumn] = useState<string>('');
@@ -467,17 +475,29 @@ const Employees = () => {
     try {
       setIsSaving(true);
       
-      // Obter matrícula do empregado selecionado
-      const matricula = selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula;
+      // Obter matrícula do empregado selecionado (sempre usar a matrícula original dos dados)
+      // A matrícula original vem dos dados processados e não tem máscara
+      const matriculaRaw = selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula;
       
-      if (!matricula) {
+      if (!matriculaRaw) {
         alert('Erro: Matrícula não encontrada para este empregado');
+        return;
+      }
+
+      // Limpar matrícula (remover formatação) antes de salvar
+      // A matrícula pode estar formatada (1.234.567-8) mas nunca mascarada no selectedEmployee
+      // pois selectedEmployee vem dos dados originais processados
+      // Precisamos extrair apenas os dígitos numéricos (remover pontos, hífens, etc.)
+      const matriculaLimpa = cleanMatricula(matriculaRaw);
+      
+      if (!matriculaLimpa || matriculaLimpa.length < 4) {
+        alert('Erro: Matrícula inválida. A matrícula deve conter pelo menos 4 dígitos.');
         return;
       }
 
       // Preparar dados para envio (limpos e validados)
       const formData = new FormData();
-      formData.append('matricula', matricula.trim());
+      formData.append('matricula', matriculaLimpa);
       
       // Limpar e enviar email
       if (editFormData.email && editFormData.email.trim() !== '') {
@@ -503,7 +523,8 @@ const Employees = () => {
       }
 
       console.log('🔍 Dados sendo enviados:', {
-        matricula,
+        matricula: matriculaLimpa,
+        matriculaOriginal: matriculaRaw,
         email: editFormData.email,
         celular: editFormData.celular,
         foto: editFormData.foto?.name
@@ -589,7 +610,8 @@ const Employees = () => {
     
     const data = filteredData.map(employee => {
       const row: any = {};
-      processedData?.columns.forEach(column => {
+      // Usar apenas colunas visíveis (excluindo colunas ocultas)
+      visibleColumns.forEach(column => {
         const value = (employee as any)[column];
         if (value !== null && value !== undefined) {
           // Formatação específica para datas
@@ -612,7 +634,7 @@ const Employees = () => {
     XLSX.utils.book_append_sheet(wb, ws, 'Funcionários');
     
     // Ajustar largura das colunas
-    const colWidths = processedData?.columns.map(() => ({ wch: 20 })) || [];
+    const colWidths = visibleColumns.map(() => ({ wch: 20 }));
     ws['!cols'] = colWidths;
 
     XLSX.writeFile(wb, `Evia - UniSafe - Funcionários - ${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -624,7 +646,8 @@ const Employees = () => {
     
     const data = filteredData.map(employee => {
       const row: any = {};
-      processedData?.columns.forEach(column => {
+      // Usar apenas colunas visíveis (excluindo colunas ocultas)
+      visibleColumns.forEach(column => {
         const value = (employee as any)[column];
         if (value !== null && value !== undefined) {
           if (column.toLowerCase().includes('data') && value instanceof Date) {
@@ -642,9 +665,9 @@ const Employees = () => {
     });
 
     const csvContent = [
-      processedData?.columns.join(','),
+      visibleColumns.join(','),
       ...data.map(row => 
-        processedData?.columns.map(column => {
+        visibleColumns.map(column => {
           const value = row[column] || '';
           // Escapar aspas duplas e quebras de linha
           return `"${String(value).replace(/"/g, '""')}"`;
@@ -784,7 +807,8 @@ const Employees = () => {
       if (monthYearColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
         return formatMonthYear(value);
       } else if (matriculaColumns.includes(column)) {
-        return formatMatricula(value);
+        // Passar selectedEmployee para verificar se é filiado
+        return formatMatricula(value, selectedEmployee);
       } else if (dateColumns.includes(column)) {
         // Verificar se é campo de data de afastamento
         const afastColumns = [
@@ -1002,7 +1026,7 @@ const Employees = () => {
               </div>
               <div class="summary-item">
                 <div class="summary-label">Matrícula</div>
-                <div class="summary-value">${formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-')}</div>
+                <div class="summary-value">${formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-', selectedEmployee)}</div>
               </div>
               ${(selectedEmployee.email || selectedEmployee.Email || selectedEmployee.EMAIL) ? `
               <div class="summary-item">
@@ -1031,7 +1055,7 @@ const Employees = () => {
         <div class="employee-info">
           <div class="info-card">
             <h3>Informações Pessoais</h3>
-            ${processedData!.columns.slice(0, Math.ceil(processedData!.columns.length / 2)).map(column => {
+            ${visibleColumns.slice(0, Math.ceil(visibleColumns.length / 2)).map(column => {
               const value = (selectedEmployee as any)[column];
               const displayValue = formatValue(value, column);
               return `
@@ -1044,7 +1068,7 @@ const Employees = () => {
           </div>
           <div class="info-card">
             <h3>Informações Adicionais</h3>
-            ${processedData!.columns.slice(Math.ceil(processedData!.columns.length / 2)).map(column => {
+            ${visibleColumns.slice(Math.ceil(visibleColumns.length / 2)).map(column => {
               const value = (selectedEmployee as any)[column];
               const displayValue = formatValue(value, column);
               return `
@@ -1100,16 +1124,90 @@ const Employees = () => {
 
 
 
+  // Função para verificar se o empregado é filiado ao sindicato
+  const isFiliado = (employee: any): boolean => {
+    // Procurar o campo FILIADO em diferentes variações de nome
+    const filiadoValue = employee.FILIADO || employee.Filiado || employee.filiado || 
+                        employee.FILIACAO || employee.Filiacao || employee.filiacao ||
+                        employee.FILIAÇÃO || employee.Filiação || employee.filiação;
+    
+    // Empregado é filiado se o campo não estiver vazio, nulo ou com traço
+    if (!filiadoValue || filiadoValue === '' || filiadoValue === '-' || 
+        filiadoValue === null || filiadoValue === undefined) {
+      return false;
+    }
+    
+    // Verificar se é string e está vazia após trim
+    if (typeof filiadoValue === 'string' && filiadoValue.trim() === '') {
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Função para limpar matrícula (remover formatação e máscara)
+  // Remove pontos, hífens, espaços e substitui "X" por dígitos originais quando possível
+  const cleanMatricula = (value: string | number): string => {
+    if (!value) return '';
+    
+    // Converter para string e remover todos os caracteres não numéricos (incluindo "X")
+    const cleaned = value.toString().replace(/[^\d]/g, '');
+    
+    return cleaned;
+  };
+
   // Função para formatar matrícula no formato X.XXX.XXX-X
-  const formatMatricula = (value: string | number): string => {
+  // Se o empregado não for filiado, oculta os últimos 4 dígitos com "X"
+  const formatMatricula = (value: string | number, employee?: any): string => {
     if (!value) return '-';
     
     // Remove todos os caracteres não numéricos
     const cleanValue = value.toString().replace(/\D/g, '');
     
-    // Se tem menos de 8 dígitos, retorna como está
-    if (cleanValue.length < 8) return value.toString();
+    // Se tem menos de 8 dígitos, retorna como está (sem formatação)
+    if (cleanValue.length < 8) {
+      // Verificar se o empregado é filiado mesmo para matrículas curtas
+      const empregadoFiliado = employee ? isFiliado(employee) : true;
+      
+      // Se não for filiado e tiver pelo menos 4 dígitos, ocultar os últimos 4
+      if (!empregadoFiliado && cleanValue.length >= 4) {
+        const visibleDigits = cleanValue.slice(0, -4);
+        return visibleDigits + 'XXXX';
+      }
+      
+      return value.toString();
+    }
     
+    // Verificar se o empregado é filiado
+    const empregadoFiliado = employee ? isFiliado(employee) : true; // Por padrão, assume filiado se não houver employee
+    
+    // Se não for filiado, aplicar máscara ocultando os últimos 4 dígitos
+    if (!empregadoFiliado) {
+      // Manter os primeiros dígitos e ocultar os últimos 4 com "X"
+      // Para formato X.XXX.XXX-X, os últimos 4 dígitos são: os últimos 3 do terceiro grupo + o último dígito
+      // Exemplo: 1.234.567-8 -> ocultar "567-8" -> 1.234.XXX-X
+      // Mas é mais simples: manter primeiros 4 dígitos e ocultar últimos 4
+      const visibleDigits = cleanValue.slice(0, -4); // Primeiros dígitos (exceto últimos 4)
+      const hiddenPart = 'XXXX'; // Últimos 4 dígitos ocultos
+      
+      // Se tem 8 dígitos, formato é X.XXX.XXX-X
+      // Se ocultarmos os últimos 4, teremos: primeiros 4 dígitos + XXXX
+      // Exemplo: 12345678 -> 1234XXXX
+      // Mas queremos manter a formatação: 1.234.XXX-X
+      if (cleanValue.length === 8) {
+        // Formato: X.XXX.XXX-X
+        // Ocultar: últimos 4 dígitos (último do terceiro grupo + último dígito)
+        // Manter: 1.234.XXX-X
+        const firstDigit = cleanValue[0];
+        const nextThree = cleanValue.slice(1, 4);
+        return `${firstDigit}.${nextThree}.XXX-X`;
+      } else {
+        // Para outros tamanhos, manter primeiros dígitos e ocultar últimos 4
+        return visibleDigits + hiddenPart;
+      }
+    }
+    
+    // Se for filiado ou não houver informação, formata normalmente
     // Formata no padrão X.XXX.XXX-X
     const formatted = cleanValue.replace(/^(\d{1})(\d{3})(\d{3})(\d{1})$/, '$1.$2.$3-$4');
     
@@ -1182,8 +1280,8 @@ const Employees = () => {
     
     const searchLower = debouncedSearchTerm.toLowerCase();
     
-    // Busca em todas as colunas do arquivo
-    return processedData!.columns.some(column => {
+    // Busca apenas nas colunas visíveis (excluindo colunas ocultas)
+    return visibleColumns.some(column => {
       const value = (emp as any)[column];
       if (value) {
         return value.toString().toLowerCase().includes(searchLower);
@@ -1350,8 +1448,8 @@ const Employees = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {/* Todas as colunas do arquivo */}
-                  {processedData!.columns.map((column) => (
+                  {/* Colunas visíveis (ocultando RACA, GRAU_INSTRUCAO, TIPO_DEFICIENCIA) */}
+                  {visibleColumns.map((column) => (
                     <th 
                       key={column} 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
@@ -1387,8 +1485,8 @@ const Employees = () => {
                 {currentEmployees.length > 0 ? (
                   currentEmployees.map((employee, index) => (
                     <tr key={employee.id || index} className="hover:bg-gray-50">
-                      {/* Todas as colunas do arquivo */}
-                      {processedData!.columns.map((column) => {
+                      {/* Colunas visíveis (ocultando RACA, GRAU_INSTRUCAO, TIPO_DEFICIENCIA) */}
+                      {visibleColumns.map((column) => {
                         const value = (employee as any)[column];
                         
                         // Formatação especial para diferentes tipos de dados
@@ -1473,7 +1571,8 @@ const Employees = () => {
                           displayValue = formatMonthYear(value);
                         }
                         else if (matriculaColumns.includes(column)) {
-                          displayValue = formatMatricula(value);
+                          // Passar o employee completo para verificar se é filiado
+                          displayValue = formatMatricula(value, employee);
                         }
                         // Colunas de texto puro - PRIORIDADE ALTA
                         else if (textOnlyColumns.includes(column)) {
@@ -1573,7 +1672,7 @@ const Employees = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={processedData!.columns.length + 1} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={visibleColumns.length + 1} className="px-6 py-4 text-center text-gray-500">
                       Nenhum registro encontrado
                     </td>
                   </tr>
@@ -1743,7 +1842,7 @@ const Employees = () => {
                   </div>
                   
                   <div className="space-y-3">
-                    {processedData!.columns.map((column) => {
+                    {visibleColumns.map((column) => {
                       const value = (selectedEmployee as any)[column];
                       let displayValue = value || '-';
                       
@@ -1782,7 +1881,8 @@ const Employees = () => {
                       if (monthYearColumns.some(col => column.toLowerCase().includes(col.toLowerCase()))) {
                         displayValue = formatMonthYear(value);
                       } else if (matriculaColumns.includes(column)) {
-                        displayValue = formatMatricula(value);
+                        // Passar selectedEmployee para verificar se é filiado
+                        displayValue = formatMatricula(value, selectedEmployee);
                       } else if (dateColumns.includes(column)) {
                         // Verificar se é campo de data de afastamento
                         const afastColumns = [
@@ -1888,7 +1988,6 @@ const Employees = () => {
                           </div>
                           <div className="text-center">
                             <h4 className="font-medium text-gray-900 text-sm">Foto do Empregado</h4>
-                            <p className="text-xs text-gray-500">Matrícula: {selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-'}</p>
                           </div>
                         </div>
                       </div>
@@ -1918,7 +2017,7 @@ const Employees = () => {
                         <div>
                           <h4 className="font-medium text-gray-900">Matrícula</h4>
                           <p className="text-sm text-gray-600">
-                            {formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-')}
+                            {formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-', selectedEmployee)}
                           </p>
                         </div>
                       </div>
@@ -2057,7 +2156,7 @@ const Employees = () => {
                   <div className="flex flex-col">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Matrícula</label>
                     <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border flex-1 flex items-center">
-                      {formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-')}
+                      {formatMatricula(selectedEmployee.matricula || selectedEmployee.Matrícula || selectedEmployee.MATRÍCULA || selectedEmployee.Matricula || '-', selectedEmployee)}
                     </div>
                   </div>
                   <div className="flex flex-col">
@@ -2426,7 +2525,7 @@ const Employees = () => {
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Dados que serão exportados:</h4>
                 <div className="text-sm text-gray-600 space-y-1">
                   <p>• Total de registros: {getFilteredDataForExport().length.toLocaleString('pt-BR')}</p>
-                  <p>• Colunas incluídas: {processedData?.columns.length || 0}</p>
+                  <p>• Colunas incluídas: {visibleColumns.length || 0}</p>
                   <p>• Filtros aplicados: {searchTerm ? 'Busca por "' + searchTerm + '"' : 'Nenhum filtro'}</p>
                 </div>
               </div>

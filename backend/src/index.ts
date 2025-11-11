@@ -21,6 +21,7 @@ import cacheAdminRoutes from './routes/cache-admin';
 import { errorHandler } from './middleware/errorHandler';
 import { securityConfig } from './config/security';
 import { redisInitialization } from './config/redis';
+import LogCleanupService from './services/logCleanupService';
 
 import compression from "compression"; 
 
@@ -134,6 +135,13 @@ app.listen(PORT, () => {
       });
     } else {
       console.log(`⚠️ Redis não configurado. Sistema funcionando sem cache Redis.`);
+    }
+
+    // Iniciar serviço de limpeza automática de logs
+    try {
+      LogCleanupService.start();
+    } catch (error) {
+      console.error('❌ Erro ao iniciar serviço de limpeza de logs:', error);
     }
   });
 }

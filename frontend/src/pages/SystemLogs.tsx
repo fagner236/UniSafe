@@ -92,12 +92,35 @@ const SystemLogs = () => {
       setIsLoading(true);
       console.log('🔍 Buscando logs do sistema...');
       
+      // Construir parâmetros apenas com valores não vazios
       const params = new URLSearchParams({
         page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        ...filters,
-        search: debouncedSearch || filters.search // Usar valor debounced ou fallback
+        limit: pagination.limit.toString()
       });
+      
+      // Adicionar filtros apenas se não estiverem vazios
+      if (filters.level && filters.level.trim() !== '') {
+        params.append('level', filters.level);
+      }
+      if (filters.category && filters.category.trim() !== '') {
+        params.append('category', filters.category);
+      }
+      if (filters.dateFrom && filters.dateFrom.trim() !== '') {
+        params.append('dateFrom', filters.dateFrom);
+      }
+      if (filters.dateTo && filters.dateTo.trim() !== '') {
+        params.append('dateTo', filters.dateTo);
+      }
+      const searchValue = debouncedSearch || filters.search;
+      if (searchValue && searchValue.trim() !== '') {
+        params.append('search', searchValue);
+      }
+      if (filters.userId && filters.userId.trim() !== '') {
+        params.append('userId', filters.userId);
+      }
+      if (filters.companyId && filters.companyId.trim() !== '') {
+        params.append('companyId', filters.companyId);
+      }
 
       console.log('🔍 Parâmetros da busca:', params.toString());
       console.log('🔍 URL da API:', `/admin/logs?${params}`);
@@ -107,16 +130,23 @@ const SystemLogs = () => {
       
       if (response.data.success) {
         console.log('✅ Logs recebidos com sucesso:', response.data.data);
-        setLogs(response.data.data.logs);
+        console.log('📊 Total de logs:', response.data.data.total);
+        console.log('📋 Logs retornados:', response.data.data.logs.length);
+        setLogs(response.data.data.logs || []);
         setPagination(prev => ({
           ...prev,
-          total: response.data.data.total
+          total: response.data.data.total || 0
         }));
       } else {
         console.error('❌ API retornou erro:', response.data);
+        setLogs([]);
+        setPagination(prev => ({ ...prev, total: 0 }));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao buscar logs:', error);
+      console.error('❌ Detalhes do erro:', error.response?.data || error.message);
+      setLogs([]);
+      setPagination(prev => ({ ...prev, total: 0 }));
     } finally {
       setIsLoading(false);
     }

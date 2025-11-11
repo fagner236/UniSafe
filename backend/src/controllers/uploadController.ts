@@ -4,8 +4,18 @@ import xlsx from 'xlsx';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import { uploadConfig, canProcessFile, formatFileSize, getBatchConfig } from '../config/upload';
+import SystemLogger from '../utils/logger';
 
 const prisma = new PrismaClient();
+
+// Função auxiliar para extrair informações da requisição
+const getRequestInfo = (req: Request) => {
+  return {
+    ipAddress: req.ip || req.socket.remoteAddress || req.headers['x-forwarded-for']?.toString() || 'unknown',
+    userAgent: req.headers['user-agent'] || 'unknown',
+    sessionId: req.headers['x-session-id']?.toString() || undefined
+  };
+};
 
 // Configuração do Multer para processamento em memória (sem salvar arquivo)
 const storage = multer.memoryStorage();
@@ -102,6 +112,39 @@ export const uploadFile = async (req: AuthRequest, res: Response) => {
     });
 
     console.log('✅ Upload registrado com sucesso:', uploadRecord.id);
+
+    // Buscar informações da empresa se houver
+    let companyName = null;
+    if (req.user!.id_empresa) {
+      const company = await prisma.company.findUnique({
+        where: { id_empresa: req.user!.id_empresa },
+        select: { nome_fantasia: true, razao_social: true }
+      });
+      companyName = company?.nome_fantasia || company?.razao_social || null;
+    }
+
+    const requestInfo = getRequestInfo(req);
+
+    // Log de upload
+    await SystemLogger.upload({
+      message: `Arquivo enviado: ${originalname}`,
+      userId: req.user!.id_usuario,
+      userEmail: req.user!.email,
+      userProfile: req.user!.perfil,
+      companyId: req.user!.id_empresa || undefined,
+      companyName: companyName || undefined,
+      ipAddress: requestInfo.ipAddress,
+      userAgent: requestInfo.userAgent,
+      sessionId: requestInfo.sessionId,
+      action: 'FILE_UPLOAD',
+      resource: '/api/upload',
+      details: {
+        uploadId: uploadRecord.id,
+        filename: originalname,
+        size: size,
+        mimetype: mimetype
+      }
+    });
 
     // Processar arquivo diretamente da memória
     console.log('📁 Iniciando processamento em memória...');

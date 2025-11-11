@@ -2,8 +2,18 @@ import { Request, Response } from 'express';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import SystemLogger from '../utils/logger';
 
 const prisma = new PrismaClient();
+
+// Função auxiliar para extrair informações da requisição
+const getRequestInfo = (req: Request) => {
+  return {
+    ipAddress: req.ip || req.socket.remoteAddress || req.headers['x-forwarded-for']?.toString() || 'unknown',
+    userAgent: req.headers['user-agent'] || 'unknown',
+    sessionId: req.headers['x-session-id']?.toString() || undefined
+  };
+};
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -98,8 +108,32 @@ export const register = async (req: Request, res: Response) => {
       { expiresIn: '24h' }
     );
 
+    // Buscar informações da empresa se houver
+    let companyName = null;
+    if (user.id_empresa) {
+      const company = await prisma.company.findUnique({
+        where: { id_empresa: user.id_empresa },
+        select: { nome_fantasia: true, razao_social: true }
+      });
+      companyName = company?.nome_fantasia || company?.razao_social || null;
+    }
+
+    const requestInfo = getRequestInfo(req);
+    
     // Log de auditoria
-    console.log(`[AUDIT] Novo usuário registrado: ${email} - ${new Date().toISOString()}`);
+    await SystemLogger.auth({
+      message: `Novo usuário registrado: ${email}`,
+      userId: user.id_usuario,
+      userEmail: user.email,
+      userProfile: user.perfil,
+      companyId: user.id_empresa || undefined,
+      companyName: companyName || undefined,
+      ipAddress: requestInfo.ipAddress,
+      userAgent: requestInfo.userAgent,
+      sessionId: requestInfo.sessionId,
+      action: 'USER_REGISTER',
+      resource: '/api/auth/register'
+    });
 
     return res.status(201).json({
       success: true,
@@ -163,8 +197,20 @@ export const login = async (req: Request, res: Response) => {
     console.log('🔐 ID da empresa:', user.id_empresa);
 
     if (!isValidPassword) {
+      const requestInfo = getRequestInfo(req);
+      
       // Log de tentativa de login falhada
-      console.log(`[SECURITY] Tentativa de login falhada para: ${email} - ${new Date().toISOString()}`);
+      await SystemLogger.security({
+        message: `Tentativa de login falhada: ${email}`,
+        userEmail: email,
+        ipAddress: requestInfo.ipAddress,
+        userAgent: requestInfo.userAgent,
+        sessionId: requestInfo.sessionId,
+        action: 'LOGIN_FAILED',
+        resource: '/api/auth/login',
+        details: { reason: 'Senha inválida' }
+      });
+      
       return res.status(401).json({
         success: false,
         message: 'Credenciais inválidas'
@@ -199,9 +245,23 @@ export const login = async (req: Request, res: Response) => {
       }
     }
 
+    const requestInfo = getRequestInfo(req);
+    
     // Log de auditoria de login bem-sucedido
-    console.log(`[AUDIT] Login bem-sucedido: ${email} - ${new Date().toISOString()}`);
-    console.log(`[AUDIT] Base sindical confirmada: ${user.base_sindical}`);
+    await SystemLogger.auth({
+      message: `Login bem-sucedido: ${email}`,
+      userId: user.id_usuario,
+      userEmail: user.email,
+      userProfile: user.perfil,
+      companyId: user.id_empresa || undefined,
+      companyName: empresaInfo?.nome_fantasia || empresaInfo?.razao_social || undefined,
+      ipAddress: requestInfo.ipAddress,
+      userAgent: requestInfo.userAgent,
+      sessionId: requestInfo.sessionId,
+      action: 'LOGIN_SUCCESS',
+      resource: '/api/auth/login',
+      details: { base_sindical: user.base_sindical }
+    });
 
     return res.json({
       success: true,
@@ -392,8 +452,37 @@ export const updateProfile = async (req: any, res: Response) => {
 
     console.log('✅ Perfil atualizado com sucesso:', updatedUser);
 
+    // Buscar informações da empresa se houver
+    let companyName = null;
+    if (currentUser.id_empresa) {
+      const company = await prisma.company.findUnique({
+        where: { id_empresa: currentUser.id_empresa },
+        select: { nome_fantasia: true, razao_social: true }
+      });
+      companyName = company?.nome_fantasia || company?.razao_social || null;
+    }
+
+    const requestInfo = getRequestInfo(req);
+    
     // Log de auditoria
-    console.log(`[AUDIT] Perfil atualizado: ${userId} - ${new Date().toISOString()}`);
+    await SystemLogger.userAction({
+      message: `Perfil atualizado: ${updatedUser.email}`,
+      userId: updatedUser.id_usuario,
+      userEmail: updatedUser.email,
+      userProfile: updatedUser.perfil,
+      companyId: currentUser.id_empresa || undefined,
+      companyName: companyName || undefined,
+      ipAddress: requestInfo.ipAddress,
+      userAgent: requestInfo.userAgent,
+      sessionId: requestInfo.sessionId,
+      action: 'UPDATE_PROFILE',
+      resource: '/api/auth/profile',
+      details: {
+        fieldsUpdated: Object.keys(updateData).filter(key => key !== 'data_atualizacao'),
+        emailChanged: email && email !== currentUser.email,
+        passwordChanged: !!updateData.senha
+      }
+    });
 
     return res.json({
       success: true,

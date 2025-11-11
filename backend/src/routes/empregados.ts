@@ -7,9 +7,18 @@ import path from 'path';
 import fs from 'fs';
 
 import { uploadFileToWasabi, getFileUrl, getPermanentFileUrl } from "../bucket/bucket.service";
-import { url } from 'inspector';
+import SystemLogger from '../utils/logger';
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Função auxiliar para extrair informações da requisição
+const getRequestInfo = (req: any) => {
+  return {
+    ipAddress: req.ip || req.socket.remoteAddress || req.headers['x-forwarded-for']?.toString() || 'unknown',
+    userAgent: req.headers['user-agent'] || 'unknown',
+    sessionId: req.headers['x-session-id']?.toString() || undefined
+  };
+};
 
 // Configuração do multer para upload de fotos
 const upload = multer({ storage: multer.memoryStorage() }); // arquivo em memória
@@ -207,6 +216,40 @@ router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res
 
       console.log('✅ Empregado(a) atualizado(a) com sucesso:', empregadoAtualizado.id_empregados);
 
+      // Buscar informações da empresa
+      let companyName = null;
+      if (req.user.id_empresa) {
+        const company = await prisma.company.findUnique({
+          where: { id_empresa: req.user.id_empresa },
+          select: { nome_fantasia: true, razao_social: true }
+        });
+        companyName = company?.nome_fantasia || company?.razao_social || null;
+      }
+
+      const requestInfo = getRequestInfo(req);
+
+      // Log de atualização de empregado
+      await SystemLogger.userAction({
+        message: `Empregado atualizado: matrícula ${matricula}`,
+        userId: req.user.id_usuario,
+        userEmail: req.user.email,
+        userProfile: req.user.perfil,
+        companyId: req.user.id_empresa || undefined,
+        companyName: companyName || undefined,
+        ipAddress: requestInfo.ipAddress,
+        userAgent: requestInfo.userAgent,
+        sessionId: requestInfo.sessionId,
+        action: 'UPDATE_EMPLOYEE',
+        resource: '/api/empregados',
+        details: {
+          matricula: matricula,
+          email: cleanEmail,
+          celular: cleanCelular,
+          fotoUpdated: !!fotoFileName,
+          base_sindical: base_sindical
+        }
+      });
+
       return res.json({
         success: true,
         message: 'Dados do(a) empregado(a) atualizado(a) com sucesso!',
@@ -230,6 +273,40 @@ router.post('/', auth, requireAdmin, upload.single('foto'), async (req: any, res
       });
 
       console.log('✅ Novo(a) empregado(a) criado(a) com sucesso:', novoEmpregado.id_empregados);
+
+      // Buscar informações da empresa
+      let companyName = null;
+      if (req.user.id_empresa) {
+        const company = await prisma.company.findUnique({
+          where: { id_empresa: req.user.id_empresa },
+          select: { nome_fantasia: true, razao_social: true }
+        });
+        companyName = company?.nome_fantasia || company?.razao_social || null;
+      }
+
+      const requestInfo = getRequestInfo(req);
+
+      // Log de criação de empregado
+      await SystemLogger.userAction({
+        message: `Empregado criado: matrícula ${matricula}`,
+        userId: req.user.id_usuario,
+        userEmail: req.user.email,
+        userProfile: req.user.perfil,
+        companyId: req.user.id_empresa || undefined,
+        companyName: companyName || undefined,
+        ipAddress: requestInfo.ipAddress,
+        userAgent: requestInfo.userAgent,
+        sessionId: requestInfo.sessionId,
+        action: 'CREATE_EMPLOYEE',
+        resource: '/api/empregados',
+        details: {
+          matricula: matricula,
+          email: cleanEmail,
+          celular: cleanCelular,
+          foto: fotoFileName,
+          base_sindical: base_sindical
+        }
+      });
 
       // Invalidar cache do empregado após criação
       const empregadoCacheKey = `empregado:${matricula}`;

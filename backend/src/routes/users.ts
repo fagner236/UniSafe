@@ -2,9 +2,19 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth';
 import * as bcrypt from 'bcryptjs';
+import SystemLogger from '../utils/logger';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Função auxiliar para extrair informações da requisição
+const getRequestInfo = (req: any) => {
+  return {
+    ipAddress: req.ip || req.socket.remoteAddress || req.headers['x-forwarded-for']?.toString() || 'unknown',
+    userAgent: req.headers['user-agent'] || 'unknown',
+    sessionId: req.headers['x-session-id']?.toString() || undefined
+  };
+};
 
 // Middleware para verificar se o usuário é admin
 const requireAdmin = async (req: any, res: any, next: any) => {
@@ -357,6 +367,39 @@ router.post('/', auth, requireAdmin, async (req: any, res: any) => {
     console.log(`✅ Usuário criado com sucesso: ${newUser.email}`);
     console.log(`✅ Base sindical salva: ${newUser.base_sindical}`);
 
+    // Buscar informações da empresa
+    let companyName = null;
+    if (newUser.id_empresa) {
+      const company = await prisma.company.findUnique({
+        where: { id_empresa: newUser.id_empresa },
+        select: { nome_fantasia: true, razao_social: true }
+      });
+      companyName = company?.nome_fantasia || company?.razao_social || null;
+    }
+
+    const requestInfo = getRequestInfo(req);
+
+    // Log de criação de usuário
+    await SystemLogger.userAction({
+      message: `Usuário criado: ${newUser.email}`,
+      userId: req.user.id_usuario,
+      userEmail: req.user.email,
+      userProfile: req.user.perfil,
+      companyId: newUser.id_empresa || undefined,
+      companyName: companyName || undefined,
+      ipAddress: requestInfo.ipAddress,
+      userAgent: requestInfo.userAgent,
+      sessionId: requestInfo.sessionId,
+      action: 'CREATE_USER',
+      resource: '/api/users',
+      details: {
+        createdUserId: newUser.id_usuario,
+        createdUserEmail: newUser.email,
+        createdUserProfile: newUser.perfil,
+        base_sindical: newUser.base_sindical
+      }
+    });
+
     // TODO: Enviar e-mail com credenciais temporárias
 
     return res.status(201).json({
@@ -460,6 +503,39 @@ router.put('/:id', auth, requireAdmin, async (req: any, res: any) => {
     });
 
     console.log(`✅ Usuário atualizado: ${updatedUser.email}`);
+
+    // Buscar informações da empresa
+    let companyName = null;
+    if (updatedUser.id_empresa) {
+      const company = await prisma.company.findUnique({
+        where: { id_empresa: updatedUser.id_empresa },
+        select: { nome_fantasia: true, razao_social: true }
+      });
+      companyName = company?.nome_fantasia || company?.razao_social || null;
+    }
+
+    const requestInfo = getRequestInfo(req);
+
+    // Log de atualização de usuário
+    await SystemLogger.userAction({
+      message: `Usuário atualizado: ${updatedUser.email}`,
+      userId: req.user.id_usuario,
+      userEmail: req.user.email,
+      userProfile: req.user.perfil,
+      companyId: updatedUser.id_empresa || undefined,
+      companyName: companyName || undefined,
+      ipAddress: requestInfo.ipAddress,
+      userAgent: requestInfo.userAgent,
+      sessionId: requestInfo.sessionId,
+      action: 'UPDATE_USER',
+      resource: `/api/users/${id}`,
+      details: {
+        updatedUserId: updatedUser.id_usuario,
+        updatedUserEmail: updatedUser.email,
+        updatedUserProfile: updatedUser.perfil,
+        base_sindical: updatedUser.base_sindical
+      }
+    });
 
     return res.json({
       success: true,
@@ -592,12 +668,52 @@ router.delete('/:id', auth, requireAdmin, async (req: any, res: any) => {
       });
     }
 
+    // Buscar informações do usuário antes de remover para o log
+    const userToDelete = await prisma.user.findUnique({
+      where: { id_usuario: id },
+      select: {
+        email: true,
+        id_empresa: true
+      }
+    });
+
     // Remover usuário
     await prisma.user.delete({
       where: { id_usuario: id }
     });
 
     console.log(`🗑️ Usuário removido: ${id}`);
+
+    // Buscar informações da empresa
+    let companyName = null;
+    if (userToDelete?.id_empresa) {
+      const company = await prisma.company.findUnique({
+        where: { id_empresa: userToDelete.id_empresa },
+        select: { nome_fantasia: true, razao_social: true }
+      });
+      companyName = company?.nome_fantasia || company?.razao_social || null;
+    }
+
+    const requestInfo = getRequestInfo(req);
+
+    // Log de exclusão de usuário
+    await SystemLogger.userAction({
+      message: `Usuário removido: ${userToDelete?.email || id}`,
+      userId: req.user.id_usuario,
+      userEmail: req.user.email,
+      userProfile: req.user.perfil,
+      companyId: userToDelete?.id_empresa || undefined,
+      companyName: companyName || undefined,
+      ipAddress: requestInfo.ipAddress,
+      userAgent: requestInfo.userAgent,
+      sessionId: requestInfo.sessionId,
+      action: 'DELETE_USER',
+      resource: `/api/users/${id}`,
+      details: {
+        deletedUserId: id,
+        deletedUserEmail: userToDelete?.email
+      }
+    });
 
     return res.json({
       success: true,
