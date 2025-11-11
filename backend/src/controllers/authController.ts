@@ -132,7 +132,7 @@ export const register = async (req: Request, res: Response) => {
       userAgent: requestInfo.userAgent,
       sessionId: requestInfo.sessionId,
       action: 'USER_REGISTER',
-      resource: '/api/auth/register'
+      details: { resource: '/api/auth/register' }
     });
 
     return res.status(201).json({
@@ -259,8 +259,10 @@ export const login = async (req: Request, res: Response) => {
       userAgent: requestInfo.userAgent,
       sessionId: requestInfo.sessionId,
       action: 'LOGIN_SUCCESS',
-      resource: '/api/auth/login',
-      details: { base_sindical: user.base_sindical }
+      details: { 
+        resource: '/api/auth/login',
+        base_sindical: user.base_sindical 
+      }
     });
 
     return res.json({

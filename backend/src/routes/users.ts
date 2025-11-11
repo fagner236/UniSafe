@@ -359,6 +359,7 @@ router.post('/', auth, requireAdmin, async (req: any, res: any) => {
         email: true,
         perfil: true,
         base_sindical: true,
+        id_empresa: true,
         data_criacao: true,
         data_atualizacao: true
       }
@@ -497,6 +498,7 @@ router.put('/:id', auth, requireAdmin, async (req: any, res: any) => {
         email: true,
         perfil: true,
         base_sindical: true,
+        id_empresa: true,
         data_criacao: true,
         data_atualizacao: true
       }
