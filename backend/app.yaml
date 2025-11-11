@@ -12,17 +12,13 @@ env_variables:
   VITE_API_URL: "https://unisafe-api-dot-evia-app.ue.r.appspot.com"
   TZ: "America/Sao_Paulo"
   ENVIRONMENT: "False"
-  
-  # Redis Cloud Configuration
-  REDIS_HOST: "redis-16285.c228.us-central1-1.gce.redns.redis-cloud.com"
-  REDIS_PORT: "16285"
-  REDIS_USERNAME: "default"
-  REDIS_PASSWORD: "aM9sEh4J97B2yQy8eTemqLT2i5UtT63x"
-  REDIS_DB: "0"
-  
-  # Cache Configuration
-  CACHE_ENABLED: "true"
-  CACHE_TTL_DEFAULT: "3600"
+
+# Bucket (Wasabi)
+BUCKET_NAME: "unisafe"
+AWS_ACCESS_KEY_ID: "DFGF37GY9UVPGF0PFW2Q"
+AWS_SECRET_ACCESS_KEY: "yNuXM5u6riUl7YBKsDY7FRBCVCziBRjV6VJgQf9I"
+BUCKET_REGION: "us-east-1"
+BUCKET_ENDPOINT: "https://s3.wasabisys.com"
 
 beta_settings:
   cloud_sql_instances: evia-app:us-central1:evia-db
