@@ -26,11 +26,12 @@ env_variables:
 
 
   # Bucket (Wasabi)
-  BUCKET_NAME: "unisafe"
-  AWS_ACCESS_KEY_ID: "DFGF37GY9UVPGF0PFW2Q"
-  AWS_SECRET_ACCESS_KEY: "yNuXM5u6riUl7YBKsDY7FRBCVCziBRjV6VJgQf9I"
-  BUCKET_REGION: "us-east-1"
-  BUCKET_ENDPOINT: "https://s3.wasabisys.com"
+  BUCKET_ACCESS_KEY: DFGF37GY9UVPGF0PFW2Q
+  BUCKET_ENDPOINT: s3.us-east-2.wasabisys.com
+  BUCKET_REGION: us-east-1
+  BUCKET_SECRET_KEY: yNuXM5u6riUl7YBKsDY7FRBCVCziBRjV6VJgQf9I
+
+
 
 beta_settings:
   cloud_sql_instances: evia-app:us-central1:evia-db
