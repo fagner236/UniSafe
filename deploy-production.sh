@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # 🚀 UniSafe - Script de Deploy para Produção
-# Versão: 1.9.3
-# Data: 08 de Novembro de 2025
+# Versão: 1.9.4
+# Data: 16 de Novembro de 2025
 
-echo "🚀 Iniciando deploy do UniSafe v1.9.3 para produção..."
+echo "🚀 Iniciando deploy do UniSafe v1.9.4 para produção..."
 
 # Cores para output
 RED='\033[0;31m'
@@ -100,8 +100,8 @@ log "   Frontend: $FRONTEND_URL"
 log "   Backend:  $BACKEND_URL"
 
 log "✅ Deploy concluído com sucesso!"
-log "📊 Versão: 1.9.3"
+log "📊 Versão: 1.9.4"
 log "📅 Data: $(date +'%d/%m/%Y %H:%M:%S')"
 
-success "🎉 UniSafe v1.9.3 está online em produção!"
+success "🎉 UniSafe v1.9.4 está online em produção!"
 

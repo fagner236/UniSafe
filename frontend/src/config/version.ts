@@ -1,7 +1,7 @@
 // 📋 CONFIGURAÇÃO DE VERSÃO DO SISTEMA UNISAFE
 // Este arquivo controla a versão do sistema de forma centralizada
 
-export const APP_VERSION = '1.9.3';
+export const APP_VERSION = '1.9.4';
 export const APP_NAME = 'UniSafe';
 export const APP_DESCRIPTION = 'Sistema de Gestão de Funcionários e Empresas';
 export const APP_AUTHOR = 'Evia';
@@ -19,6 +19,24 @@ export const VERSION_FEATURES = [
 ];
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.9.4',
+    date: 'Novembro 2025',
+    features: [
+      '📄 Exportação em PDF com lista de presença',
+      '📋 Colunas específicas: Nome, Matrícula, Filiado, Data e Assinatura',
+      '📊 Cabeçalho com informações do Sindicato, SE, Município e Unidade',
+      '📈 Estatísticas de filiação no cabeçalho (total, filiados e não filiados com percentuais)',
+      '📑 Agrupamento por unidade com nova página para cada unidade',
+      '🎨 Destaque visual para empregados filiados (fundo cinza claro)',
+      '📝 Campo Data pré-preenchido com mês e ano da extração',
+      '🔍 Ordenação alfabética por nome',
+      '📊 Sistema de logs de exportação (Excel, CSV e PDF)',
+      '🌐 Captura aprimorada de IP e Session ID nos logs',
+      '👁️ Correção da lógica do ícone de visualização de detalhes nos logs',
+      '💾 Persistência da Base Sindical selecionada no Dashboard'
+    ]
+  },
   {
     version: '1.9.3',
     date: 'Novembro 2025',
@@ -288,18 +306,20 @@ export const VERSION_INFO = {
   description: APP_DESCRIPTION,
   author: APP_AUTHOR,
   website: APP_WEBSITE,
-  releaseDate: '2025-11-08',
+  releaseDate: '2025-11-16',
   changes: [
-    '🚀 Atualização completa do stack tecnológico',
-    '⚡ Node.js atualizado para 24.11.0 LTS',
-    '⚛️ React atualizado para 19.2.0',
-    '📦 TypeScript atualizado para 5.9.3',
-    '🔧 Prisma atualizado para 6.19.0',
-    '💾 Redis Client atualizado para 5.9.0',
-    '🎨 Vite atualizado para 5.4.21',
-    '🛡️ Todas as dependências atualizadas',
-    '✅ Sistema 100% atualizado e funcionando',
-    '📊 Performance e segurança melhoradas'
+    '📄 Exportação em PDF com lista de presença',
+    '📋 Colunas específicas: Nome, Matrícula, Filiado, Data e Assinatura',
+    '📊 Cabeçalho com informações do Sindicato, SE, Município e Unidade',
+    '📈 Estatísticas de filiação no cabeçalho (total, filiados e não filiados com percentuais)',
+    '📑 Agrupamento por unidade com nova página para cada unidade',
+    '🎨 Destaque visual para empregados filiados (fundo cinza claro)',
+    '📝 Campo Data pré-preenchido com mês e ano da extração',
+    '🔍 Ordenação alfabética por nome',
+    '📊 Sistema de logs de exportação (Excel, CSV e PDF)',
+    '🌐 Captura aprimorada de IP e Session ID nos logs',
+    '👁️ Correção da lógica do ícone de visualização de detalhes nos logs',
+    '💾 Persistência da Base Sindical selecionada no Dashboard'
   ]
 };
 

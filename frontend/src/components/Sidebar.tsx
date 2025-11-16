@@ -232,7 +232,7 @@ const Sidebar = () => {
             )}
             {isCollapsed && (
               <p className="text-xs text-center" style={{ color: '#ffc9c0' }}>
-                v1.9.3
+                v1.9.4
               </p>
             )}
           </div>

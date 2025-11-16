@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { config } from '@/config/environment';
+import api from '@/config/axios';
 
 
 const Employees = () => {
@@ -619,8 +620,55 @@ const Employees = () => {
     return filteredData;
   };
 
+  // Função auxiliar para criar log de exportação
+  const createExportLog = async (format: 'excel' | 'csv' | 'pdf', recordCount: number) => {
+    try {
+      const filteredData = getFilteredDataForExport();
+      
+      // Buscar coluna de unidade usando a função findColumn existente
+      const unidadeColumn = findColumn(['UNIDADE', 'Unidade', 'unidade', 'LOTACAO', 'Lotação', 'lotacao', 'LOTAÇÃO', 'LOTACÃO']) ||
+                            processedData?.columns.find(col => {
+                              const colLower = col.toLowerCase();
+                              return colLower.includes('unidade') || colLower.includes('lotacao') || colLower.includes('lotação');
+                            });
+      
+      // Obter nome(s) da(s) unidade(s) dos dados exportados
+      let nomeUnidade = 'Não informado';
+      if (unidadeColumn && filteredData.length > 0) {
+        const unidades = new Set<string>();
+        filteredData.forEach((employee: any) => {
+          const unidade = employee[unidadeColumn];
+          if (unidade) {
+            unidades.add(String(unidade).trim());
+          }
+        });
+        
+        if (unidades.size > 0) {
+          nomeUnidade = Array.from(unidades).sort().join(', ');
+        }
+      }
+      
+      await api.post('/admin/logs', {
+        level: 'INFO',
+        category: 'SYSTEM',
+        message: `Exportação de dados realizada: ${format.toUpperCase()}`,
+        action: 'EXPORT_DATA',
+        resource: '/employees/export',
+        details: {
+          format: format.toUpperCase(),
+          'Total de empregados': recordCount || filteredData.length,
+          hasFilters: !!searchTerm,
+          'Unidade': nomeUnidade
+        }
+      });
+    } catch (error) {
+      // Não interromper a exportação se o log falhar
+      console.error('Erro ao criar log de exportação:', error);
+    }
+  };
+
   // Função para exportar para PDF (Lista de Presença)
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
       const filteredData = getFilteredDataForExport();
       
@@ -889,6 +937,9 @@ const Employees = () => {
       const fileName = `Lista de Presença - ${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
       
+      // Criar log de exportação
+      await createExportLog('pdf', filteredData.length);
+      
     } catch (error) {
       console.error('Erro na exportação PDF:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -930,6 +981,9 @@ const Employees = () => {
     ws['!cols'] = colWidths;
 
     XLSX.writeFile(wb, `Evia - UniSafe - Funcionários - ${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    // Criar log de exportação
+    createExportLog('excel', filteredData.length);
   };
 
   // Função para exportar para CSV
@@ -976,6 +1030,9 @@ const Employees = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    // Criar log de exportação
+    createExportLog('csv', filteredData.length);
   };
 
 
@@ -998,7 +1055,7 @@ const Employees = () => {
           break;
         case 'pdf':
           console.log('Exportando para PDF (Lista de Presença)...');
-          exportToPDF();
+          await exportToPDF();
           console.log('PDF exportado com sucesso');
           break;
         default:

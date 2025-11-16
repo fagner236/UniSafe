@@ -2,6 +2,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '../middleware/auth';
 import LogCleanupService from '../services/logCleanupService';
+import { SystemLogger } from '../utils/logger';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -456,6 +457,142 @@ router.post('/cleanup', auth, requireSystemOwner, async (req: any, res: any) => 
     });
   } catch (error) {
     console.error('❌ Erro ao executar limpeza de logs:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor'
+    });
+  }
+});
+
+// POST /api/admin/logs - Criar log do sistema (chamado do frontend)
+router.post('/', auth, async (req: any, res: any) => {
+  try {
+    console.log('📝 === ROTA POST /api/admin/logs CHAMADA ===');
+    console.log('📝 Dados do log:', req.body);
+
+    const {
+      level = 'INFO',
+      category = 'SYSTEM',
+      message,
+      action,
+      resource,
+      details
+    } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mensagem é obrigatória'
+      });
+    }
+
+    // Obter informações do usuário e empresa do token
+    const userId = req.user?.id_usuario;
+    const userEmail = req.user?.email;
+    const userProfile = req.user?.perfil;
+    const companyId = req.user?.empresa?.id_empresa;
+    const companyName = req.user?.empresa?.nome_fantasia || req.user?.empresa?.razao_social;
+
+    // Obter IP e User Agent da requisição
+    // Usar a mesma lógica das outras rotas do sistema
+    let ipAddress: string | undefined;
+    
+    // Tentar múltiplas formas de obter o IP (na ordem de prioridade)
+    // 1. req.ip (funciona quando trust proxy está configurado)
+    if (req.ip && req.ip !== '::1' && req.ip !== '127.0.0.1' && req.ip !== '::ffff:127.0.0.1') {
+      ipAddress = req.ip;
+    }
+    // 2. X-Forwarded-For (quando há proxy/load balancer)
+    else if (req.headers['x-forwarded-for']) {
+      const forwardedFor = req.headers['x-forwarded-for'];
+      ipAddress = Array.isArray(forwardedFor) 
+        ? forwardedFor[0].trim() 
+        : forwardedFor.split(',')[0].trim();
+    }
+    // 3. X-Real-IP (nginx proxy)
+    else if (req.headers['x-real-ip']) {
+      ipAddress = Array.isArray(req.headers['x-real-ip']) 
+        ? req.headers['x-real-ip'][0] 
+        : req.headers['x-real-ip'];
+    }
+    // 4. CF-Connecting-IP (Cloudflare)
+    else if (req.headers['cf-connecting-ip']) {
+      ipAddress = Array.isArray(req.headers['cf-connecting-ip']) 
+        ? req.headers['cf-connecting-ip'][0] 
+        : req.headers['cf-connecting-ip'];
+    }
+    // 5. socket.remoteAddress (fallback direto)
+    else if (req.socket?.remoteAddress) {
+      const socketIp = req.socket.remoteAddress;
+      // Remover prefixo IPv6 se houver
+      ipAddress = socketIp.startsWith('::ffff:') 
+        ? socketIp.replace('::ffff:', '') 
+        : socketIp;
+    }
+    // 6. connection.remoteAddress (fallback antigo)
+    else if ((req as any).connection?.remoteAddress) {
+      const connIp = (req as any).connection.remoteAddress;
+      // Remover prefixo IPv6 se houver
+      ipAddress = connIp.startsWith('::ffff:') 
+        ? connIp.replace('::ffff:', '') 
+        : connIp;
+    }
+    
+    // Se ainda não tiver IP válido, usar 'Não informado'
+    if (!ipAddress || ipAddress === '::1' || ipAddress === '127.0.0.1' || ipAddress === '::ffff:127.0.0.1') {
+      ipAddress = 'Não informado';
+    }
+    
+    const userAgent = req.headers['user-agent'] || 'Não informado';
+    // Tentar múltiplas formas de obter o Session ID
+    let sessionId = req.headers['x-session-id']?.toString() || 
+                    (req as any).sessionID || 
+                    (req as any).session?.id;
+    
+    // Se não tiver session ID, gerar um baseado no timestamp e IP
+    if (!sessionId) {
+      const timestamp = Date.now();
+      const ipHash = ipAddress ? ipAddress.replace(/[^0-9]/g, '').slice(-8) : '00000000';
+      sessionId = `session-${timestamp}-${ipHash}`;
+    }
+    
+    // Logs de debug para verificar captura do IP
+    console.log('📝 === DEBUG CAPTURA DE IP ===');
+    console.log('📝 req.ip:', req.ip);
+    console.log('📝 req.headers[x-forwarded-for]:', req.headers['x-forwarded-for']);
+    console.log('📝 req.headers[x-real-ip]:', req.headers['x-real-ip']);
+    console.log('📝 req.socket.remoteAddress:', req.socket?.remoteAddress);
+    console.log('📝 req.connection.remoteAddress:', (req as any).connection?.remoteAddress);
+    console.log('📝 IP FINAL capturado:', ipAddress);
+    console.log('📝 Session ID capturado:', sessionId);
+
+    // Criar log usando o SystemLogger
+    // IP e Session ID são salvos nos campos principais do log e aparecem na seção de detalhes
+    const log = await SystemLogger.log({
+      level: level.toUpperCase(),
+      category: category.toUpperCase(),
+      message,
+      userId,
+      userEmail,
+      userProfile,
+      companyId,
+      companyName,
+      ipAddress,
+      userAgent,
+      sessionId,
+      action,
+      resource,
+      details
+    });
+
+    console.log('✅ Log criado com sucesso:', log?.id);
+
+    return res.json({
+      success: true,
+      data: log
+    });
+  } catch (error) {
+    console.error('❌ Erro ao criar log:', error);
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor'

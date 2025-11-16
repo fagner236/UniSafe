@@ -31,6 +31,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000; // Voltando para porta 3000
 
+// Configurar trust proxy para capturar IP corretamente quando há proxy/load balancer
+app.set('trust proxy', true);
+
 
 // Força compressão em todas as respostas
 app.use(
