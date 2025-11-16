@@ -4,6 +4,8 @@ import { useData } from '@/contexts/DataContext';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Search, Download, Eye, Edit, Filter, ChevronUp, ChevronDown, X, User, Briefcase, FileText, Building, MapPin, Printer, FileSpreadsheet, Mail, Phone, Camera, Save, CameraIcon, CheckCircle, AlertCircle, ArrowLeft, Database } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
 import { config } from '@/config/environment';
 
 
@@ -28,7 +30,7 @@ const Employees = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'excel' | 'csv'>('excel');
+  const [exportFormat, setExportFormat] = useState<'excel' | 'csv' | 'pdf'>('pdf');
   const [isExporting, setIsExporting] = useState(false);
   
   // Estados para o modal de edição
@@ -585,6 +587,19 @@ const Employees = () => {
     setExportFormat('excel');
   };
 
+  // Função auxiliar para encontrar coluna por variações de nome
+  const findColumn = (variations: string[]): string | null => {
+    if (!processedData?.columns) return null;
+    for (const variation of variations) {
+      const found = processedData.columns.find(col => 
+        col.toUpperCase() === variation.toUpperCase() || 
+        col.toUpperCase().includes(variation.toUpperCase())
+      );
+      if (found) return found;
+    }
+    return null;
+  };
+
   // Função para obter dados filtrados para exportação
   const getFilteredDataForExport = () => {
     if (!processedData) return [];
@@ -602,6 +617,283 @@ const Employees = () => {
     }
     
     return filteredData;
+  };
+
+  // Função para exportar para PDF (Lista de Presença)
+  const exportToPDF = () => {
+    try {
+      const filteredData = getFilteredDataForExport();
+      
+      if (filteredData.length === 0) {
+        alert('Nenhum dado disponível para exportação');
+        return;
+      }
+
+      // Encontrar colunas necessárias
+      const nomeColumn = findColumn(['NOME', 'Nome', 'name']) || processedData?.columns.find(col => col.toLowerCase().includes('nome')) || 'NOME';
+      const matriculaColumn = findColumn(['MATRICULA', 'MATRÍCULA', 'Matricula', 'Matrícula', 'matricula']) || processedData?.columns.find(col => col.toLowerCase().includes('matr')) || 'MATRICULA';
+      
+      // Colunas para cabeçalho - buscar com múltiplas variações
+      const sindicatoColumn = findColumn(['SINDICATO', 'Sindicato', 'sindicato', 'BASE SINDICAL', 'Base Sindical', 'BASE_SINDICAL', 'BASE SINDICAL']) || 
+                              processedData?.columns.find(col => {
+                                const colLower = col.toLowerCase();
+                                return colLower.includes('sindicato') || colLower.includes('base sindical') || colLower.includes('base_sindical');
+                              });
+      const seColumn = findColumn(['SE', 'Se', 'se', 'SINDICATO/ENTIDADE', 'Sindicato/Entidade', 'SINDICATO ENTIDADE', 'Sindicato Entidade']) ||
+                       processedData?.columns.find(col => {
+                         const colLower = col.toLowerCase();
+                         return (colLower === 'se' || colLower === 's/e') && !colLower.includes('sindicato');
+                       });
+      const municipioColumn = findColumn(['MUNICIPIO', 'Município', 'municipio', 'MUNICÍPIO', 'CIDADE', 'Cidade', 'cidade', 'MUNICÍPIO']) ||
+                              processedData?.columns.find(col => {
+                                const colLower = col.toLowerCase();
+                                return colLower.includes('municipio') || colLower.includes('município') || colLower.includes('cidade');
+                              });
+      const unidadeColumn = findColumn(['UNIDADE', 'Unidade', 'unidade', 'LOTACAO', 'Lotação', 'lotacao', 'LOTAÇÃO', 'LOTACÃO']) ||
+                            processedData?.columns.find(col => {
+                              const colLower = col.toLowerCase();
+                              return colLower.includes('unidade') || colLower.includes('lotacao') || colLower.includes('lotação');
+                            });
+      
+      // Agrupar dados por unidade
+      const dadosPorUnidade = new Map<string, any[]>();
+      
+      filteredData.forEach((employee: any) => {
+        const unidade = unidadeColumn && employee[unidadeColumn] 
+          ? String(employee[unidadeColumn]).trim() 
+          : 'Sem Unidade';
+        
+        if (!dadosPorUnidade.has(unidade)) {
+          dadosPorUnidade.set(unidade, []);
+        }
+        dadosPorUnidade.get(unidade)!.push(employee);
+      });
+      
+      // Ordenar unidades alfabeticamente
+      const unidadesOrdenadas = Array.from(dadosPorUnidade.keys()).sort((a, b) => 
+        a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
+      );
+      
+      // Criar documento PDF em modo retrato
+      const doc = new jsPDF('portrait', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 15;
+      const grayColor = [230, 230, 230];
+      
+      // Função auxiliar para desenhar cabeçalho
+      const desenharCabecalho = (unidade: string, dadosUnidade: any[], yPos: number) => {
+        // Buscar valores do primeiro registro da unidade
+        let sindicatoNome = 'Sindicato';
+        let seNome = 'SE';
+        let municipioNome = 'Município';
+        let unidadeNome = unidade;
+        
+        if (dadosUnidade.length > 0) {
+          const primeiroRegistro = dadosUnidade[0] as any;
+          if (sindicatoColumn && primeiroRegistro[sindicatoColumn]) {
+            sindicatoNome = String(primeiroRegistro[sindicatoColumn]).trim();
+          }
+          if (seColumn && primeiroRegistro[seColumn]) {
+            seNome = String(primeiroRegistro[seColumn]).trim();
+          }
+          if (municipioColumn && primeiroRegistro[municipioColumn]) {
+            municipioNome = String(primeiroRegistro[municipioColumn]).trim();
+          }
+        }
+        
+        // Título
+        doc.setFontSize(16);
+        doc.setTextColor(29, 51, 91);
+        doc.setFont('helvetica', 'bold');
+        doc.text('LISTA DE PRESENÇA', pageWidth / 2, yPos, { align: 'center' });
+        
+        yPos += 10;
+        
+        // Informações do cabeçalho
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        
+        const totalEmpregados = dadosUnidade.length;
+        
+        // Contar filiados e não filiados
+        let totalFiliados = 0;
+        let totalNaoFiliados = 0;
+        
+        dadosUnidade.forEach((employee: any) => {
+          if (isFiliado(employee)) {
+            totalFiliados++;
+          } else {
+            totalNaoFiliados++;
+          }
+        });
+        
+        // Calcular percentuais
+        const percentualFiliados = totalEmpregados > 0 
+          ? ((totalFiliados / totalEmpregados) * 100).toFixed(1).replace('.', ',')
+          : '0,0';
+        const percentualNaoFiliados = totalEmpregados > 0
+          ? ((totalNaoFiliados / totalEmpregados) * 100).toFixed(1).replace('.', ',')
+          : '0,0';
+        
+        // Desenhar cada linha com título em negrito e valor em normal
+        const linhas = [
+          { titulo: 'Sindicato: ', valor: sindicatoNome },
+          { titulo: 'SE: ', valor: seNome },
+          { titulo: 'Município: ', valor: municipioNome },
+          { titulo: 'Unidade: ', valor: unidadeNome },
+          { titulo: 'Total de Empregados: ', valor: `${totalEmpregados.toLocaleString('pt-BR')} (Filiados: ${totalFiliados.toLocaleString('pt-BR')} (${percentualFiliados}%) | Não Filiados: ${totalNaoFiliados.toLocaleString('pt-BR')} (${percentualNaoFiliados}%))` }
+        ];
+        
+        linhas.forEach((linha, index) => {
+          const yPosition = yPos + (index * 6);
+          
+          // Desenhar título em negrito
+          doc.setFont('helvetica', 'bold');
+          const tituloWidth = doc.getTextWidth(linha.titulo);
+          doc.text(linha.titulo, margin, yPosition);
+          
+          // Desenhar valor em normal
+          doc.setFont('helvetica', 'normal');
+          doc.text(linha.valor, margin + tituloWidth, yPosition);
+        });
+        
+        return yPos + 32;
+      };
+      
+      // Processar cada unidade
+      unidadesOrdenadas.forEach((unidade, unidadeIndex) => {
+        // Se não for a primeira unidade, adicionar nova página
+        if (unidadeIndex > 0) {
+          doc.addPage();
+        }
+        
+        const dadosUnidade = dadosPorUnidade.get(unidade)!;
+        
+        // Ordenar dados da unidade alfabeticamente por nome
+        const sortedData = [...dadosUnidade].sort((a: any, b: any) => {
+          const nomeA = String(a[nomeColumn] || '').toLowerCase().trim();
+          const nomeB = String(b[nomeColumn] || '').toLowerCase().trim();
+          return nomeA.localeCompare(nomeB, 'pt-BR', { sensitivity: 'base' });
+        });
+        
+        // Preparar dados da tabela
+        // Obter mês e ano atual para o campo de data
+        const dataExtracao = new Date();
+        const mes = String(dataExtracao.getMonth() + 1).padStart(2, '0'); // Mês (01-12)
+        const ano = dataExtracao.getFullYear(); // Ano (ex: 2025)
+        const dataFormatada = `___/${mes}/${ano}`; // Formato: "___/MM/AAAA" (três underscores para o dia)
+        
+        const tableData = sortedData.map((employee: any) => {
+          const nome = employee[nomeColumn] || '-';
+          const matricula = employee[matriculaColumn] || '-';
+          const empregadoFiliado = isFiliado(employee);
+          const filiado = empregadoFiliado ? 'Sim' : 'Não';
+          
+          // Aplicar formatação na matrícula (máscara e pontuação)
+          const matriculaFormatada = formatMatricula(matricula, employee);
+          
+          return {
+            data: [
+              String(nome).substring(0, 50), // Limitar tamanho do nome
+              matriculaFormatada, // Matrícula formatada com máscara
+              filiado,
+              dataFormatada, // Coluna de data com mês e ano preenchidos (dia em branco)
+              '' // Coluna de assinatura (vazia)
+            ],
+            isFiliado: empregadoFiliado
+          };
+        });
+        
+        // Desenhar cabeçalho
+        let yPosition = desenharCabecalho(unidade, sortedData, margin);
+        
+        // Criar tabela usando autoTable
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Nome', 'Matrícula', 'Filiado', 'Data', 'Assinatura']],
+          body: tableData.map((row: any) => row.data),
+          theme: 'grid',
+          headStyles: {
+            fillColor: [29, 51, 91],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 10,
+            halign: 'center'
+          },
+          bodyStyles: {
+            fontSize: 9,
+            textColor: [0, 0, 0]
+          },
+          columnStyles: {
+            0: { cellWidth: 'auto', halign: 'left' }, // Nome (alinhado à esquerda)
+            1: { cellWidth: 35, halign: 'center' }, // Matrícula (centralizada)
+            2: { cellWidth: 25, halign: 'center' }, // Filiado (centralizada)
+            3: { cellWidth: 25, halign: 'center' }, // Data (centralizada)
+            4: { cellWidth: 50, halign: 'left' }  // Assinatura (alinhada à esquerda)
+          },
+          margin: { left: margin, right: margin },
+          styles: {
+            cellPadding: 3,
+            lineColor: [0, 0, 0],
+            lineWidth: 0.1
+          },
+          didParseCell: (data: any) => {
+            // Aplicar cor de fundo cinza claro para linhas de filiados
+            if (data.section === 'body' && data.row.index < tableData.length) {
+              const rowData = tableData[data.row.index];
+              if (rowData && rowData.isFiliado) {
+                data.cell.styles.fillColor = grayColor;
+              }
+            }
+          },
+        });
+      });
+      
+      // Adicionar rodapé em todas as páginas após todas as tabelas serem desenhadas
+      // Isso garante que temos o número total correto de páginas
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      
+      // Formatar data e hora manualmente no formato desejado: "DD/MM/AAAA às HH:MM"
+      const agora = new Date();
+      const dia = String(agora.getDate()).padStart(2, '0');
+      const mes = String(agora.getMonth() + 1).padStart(2, '0');
+      const ano = agora.getFullYear();
+      const hora = String(agora.getHours()).padStart(2, '0');
+      const minuto = String(agora.getMinutes()).padStart(2, '0');
+      const dataExtracao = `${dia}/${mes}/${ano} às ${hora}:${minuto}`;
+      
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.setFont('helvetica', 'normal');
+        
+        doc.text(
+          `Dados extraídos em: ${dataExtracao}`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+        
+        doc.text(
+          `Página ${i} de ${totalPages}`,
+          pageWidth - margin,
+          pageHeight - 10,
+          { align: 'right' }
+        );
+      }
+      
+      // Salvar o arquivo
+      const fileName = `Lista de Presença - ${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+    } catch (error) {
+      console.error('Erro na exportação PDF:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      throw new Error('Erro ao gerar PDF: ' + errorMessage);
+    }
   };
 
   // Função para exportar para Excel
@@ -703,6 +995,11 @@ const Employees = () => {
           console.log('Exportando para CSV...');
           exportToCSV();
           console.log('CSV exportado com sucesso');
+          break;
+        case 'pdf':
+          console.log('Exportando para PDF (Lista de Presença)...');
+          exportToPDF();
+          console.log('PDF exportado com sucesso');
           break;
         default:
           throw new Error('Formato de exportação não suportado');
@@ -2491,7 +2788,7 @@ const Employees = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Formato de Exportação
                 </label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <button
                     onClick={() => setExportFormat('excel')}
                     className={`p-4 border-2 rounded-lg transition-all ${
@@ -2517,6 +2814,19 @@ const Employees = () => {
                     <div className="text-sm font-medium">CSV</div>
                     <div className="text-xs text-gray-500">.csv</div>
                   </button>
+                  
+                  <button
+                    onClick={() => setExportFormat('pdf')}
+                    className={`p-4 border-2 rounded-lg transition-all ${
+                      exportFormat === 'pdf'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <Printer className="h-8 w-8 mx-auto mb-2" />
+                    <div className="text-sm font-medium">PDF</div>
+                    <div className="text-xs text-gray-500">Lista de Presença</div>
+                  </button>
                 </div>
               </div>
 
@@ -2525,7 +2835,11 @@ const Employees = () => {
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Dados que serão exportados:</h4>
                 <div className="text-sm text-gray-600 space-y-1">
                   <p>• Total de registros: {getFilteredDataForExport().length.toLocaleString('pt-BR')}</p>
-                  <p>• Colunas incluídas: {visibleColumns.length || 0}</p>
+                  {exportFormat === 'pdf' ? (
+                    <p>• Formato: Lista de Presença (Nome, Matrícula, Filiado, Data, Assinatura)</p>
+                  ) : (
+                    <p>• Colunas incluídas: {visibleColumns.length || 0}</p>
+                  )}
                   <p>• Filtros aplicados: {searchTerm ? 'Busca por "' + searchTerm + '"' : 'Nenhum filtro'}</p>
                 </div>
               </div>

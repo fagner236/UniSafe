@@ -120,7 +120,7 @@ const Dashboard = () => {
       const currentUserId = user.id_usuario;
       const lastUserId = lastUserIdRef.current;
       
-      // Se o usuário mudou (diferente ID), resetar tudo
+      // Se o usuário mudou (diferente ID), resetar tudo incluindo base sindical salva
       if (currentUserId !== lastUserId) {
         console.log('🔄 Novo usuário detectado, resetando inicialização...');
         console.log('🔄 Usuário anterior:', lastUserId);
@@ -129,6 +129,9 @@ const Dashboard = () => {
         lastLoadedBaseSindicalRef.current = null;
         lastLoadedMonthRef.current = null;
         lastUserIdRef.current = currentUserId;
+        // Limpar base sindical salva para que o novo usuário use sua base inicial
+        localStorage.removeItem('selectedBaseSindical');
+        console.log('🧹 Base sindical salva removida para novo usuário');
       }
     } else if (user && !lastUserIdRef.current) {
       // Primeira vez que o usuário é definido
@@ -141,40 +144,30 @@ const Dashboard = () => {
       console.log('🚀 Usuário:', user);
       console.log('🚀 Base sindical do usuário:', user.base_sindical);
       
-      // Verificar se é admin da empresa dona do sistema
-      const isOwnerAdmin = isSystemOwnerAdmin();
+      // SEMPRE priorizar base sindical salva no localStorage (para todos os usuários)
+      // Isso mantém a última seleção do usuário mesmo ao navegar entre páginas
+      const savedBaseSindical = localStorage.getItem('selectedBaseSindical');
       
-      if (isOwnerAdmin) {
-        // Para admin dono do sistema: priorizar base sindical salva no localStorage
-        const savedBaseSindical = localStorage.getItem('selectedBaseSindical');
-        if (savedBaseSindical) {
-          console.log('🏢 Admin dono: Usando base sindical salva:', savedBaseSindical);
-          setSelectedBaseSindical(savedBaseSindical);
+      if (savedBaseSindical) {
+        // Se há base salva no localStorage, usar ela (mantém a última seleção)
+        console.log('💾 Usando base sindical salva no localStorage:', savedBaseSindical);
+        setSelectedBaseSindical(savedBaseSindical);
+      } else {
+        // Se não houver base salva, usar a base sindical inicial do usuário
+        if (user.base_sindical) {
+          console.log('🏢 Usando base sindical inicial do usuário:', user.base_sindical);
+          setSelectedBaseSindical(user.base_sindical);
+          localStorage.setItem('selectedBaseSindical', user.base_sindical);
         } else {
-          // Se não houver base salva, usar a base sindical do usuário
-          console.log('🏢 Admin dono: Usando base sindical do usuário:', user.base_sindical);
-          if (user.base_sindical) {
-            setSelectedBaseSindical(user.base_sindical);
-            localStorage.setItem('selectedBaseSindical', user.base_sindical);
-          }
+          console.log('⚠️ Nenhuma base sindical encontrada para o usuário');
+          console.log('⚠️ Dados do usuário:', user);
         }
-      } else {
-      // Para outros usuários: sempre usar a base sindical do usuário
-      if (user.base_sindical) {
-        console.log('🏢 Usuário comum: Definindo base sindical do usuário:', user.base_sindical);
-        console.log('🔐 VALIDAÇÃO: Base sindical do usuário:', user.base_sindical);
-        setSelectedBaseSindical(user.base_sindical);
-        localStorage.setItem('selectedBaseSindical', user.base_sindical);
-        
-        // Validação de segurança
-        if (user.base_sindical !== 'SINTECT/SPM' && user.email === 'fabyghira19@gmail.com') {
-          console.error('🚨 ERRO CRÍTICO: Base sindical incorreta para usuária fabyghira19@gmail.com');
-          console.error('🚨 Base esperada: SINTECT/SPM, Base recebida:', user.base_sindical);
-        }
-      } else {
-        console.log('⚠️ Nenhuma base sindical encontrada para o usuário');
-        console.log('⚠️ Dados do usuário:', user);
       }
+      
+      // Validação de segurança (apenas para usuário específico)
+      if (user.base_sindical !== 'SINTECT/SPM' && user.email === 'fabyghira19@gmail.com') {
+        console.error('🚨 ERRO CRÍTICO: Base sindical incorreta para usuária fabyghira19@gmail.com');
+        console.error('🚨 Base esperada: SINTECT/SPM, Base recebida:', user.base_sindical);
       }
       
       // Definir mês selecionado apenas se já houver dados processados
@@ -205,15 +198,27 @@ const Dashboard = () => {
       return;
     }
     
-    // Se não há base sindical selecionada, não pode carregar
+    // Se não há base sindical selecionada, tentar restaurar do localStorage ou usar a inicial do usuário
     if (!selectedBaseSindical) {
-      console.log('⚠️ selectedBaseSindical vazio, aguardando...');
-      // Se o usuário tem base_sindical mas selectedBaseSindical está vazio, definir
-      if (user?.base_sindical && !selectedBaseSindical) {
-        console.log('⚠️ Corrigindo: user.base_sindical existe mas selectedBaseSindical está vazio. Definindo...');
+      console.log('⚠️ selectedBaseSindical vazio, tentando restaurar...');
+      
+      // Primeiro, tentar restaurar do localStorage
+      const savedBaseSindical = localStorage.getItem('selectedBaseSindical');
+      if (savedBaseSindical) {
+        console.log('💾 Restaurando base sindical do localStorage:', savedBaseSindical);
+        setSelectedBaseSindical(savedBaseSindical);
+        return; // Retornar para que o efeito seja executado novamente com a base restaurada
+      }
+      
+      // Se não houver base salva, usar a base inicial do usuário
+      if (user?.base_sindical) {
+        console.log('🏢 Usando base sindical inicial do usuário:', user.base_sindical);
         setSelectedBaseSindical(user.base_sindical);
         localStorage.setItem('selectedBaseSindical', user.base_sindical);
+        return; // Retornar para que o efeito seja executado novamente com a base definida
       }
+      
+      console.log('⚠️ Nenhuma base sindical disponível, aguardando...');
       return;
     }
     
