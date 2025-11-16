@@ -6,7 +6,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-import { uploadFileToWasabi, getFileUrl, getPermanentFileUrl } from "../bucket/bucket.service";
+import { uploadFileToWasabi, getPermanentFileUrl, getFileUrl } from "../bucket/bucket.service";
 import SystemLogger from '../utils/logger';
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -430,11 +430,11 @@ router.get('/:matricula', auth, requireAdmin, async (req: any, res: any) => {
     if (empregado.foto && base) {
       try {
         const bucket = base.base_sindical?.replace('/','_') || "unisafe";
-        const permanentUrl = getPermanentFileUrl(bucket, empregado.foto);
+        const permanentUrl = await getFileUrl({bucket: bucket, key: empregado.foto});
         console.log("🔗 URL permanente da foto:", permanentUrl);
         empregado.foto = permanentUrl;
       } catch (err) {
-        console.error("❌ Erro ao construir URL permanente da foto:", err);
+        console.error("❌ Erro ao construir URL permanente da foto:", err, empregado.foto);
         // Manter o nome do arquivo se houver erro
       }
     }
